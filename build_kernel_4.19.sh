@@ -52,6 +52,8 @@ DTC_EXT=${KERNEL_ROOT}/tools/dtc \
 CROSS_COMPILE=${BUILD_CROSS_COMPILE} \
 CC=${BUILD_CC} \
 CLANG_TRIPLE=aarch64-linux-gnu- \
+LOCALVERSION=${LOCALVERSION} \
+LTO=${LTO} \
 "
     # Make default configuration.
     make ${BUILD_OPTIONS} $TARGET_DEFCONFIG

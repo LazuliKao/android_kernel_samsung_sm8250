@@ -14,49 +14,17 @@ diff --color -ruN include/linux/mount.h include/linux/mount.h
 diff --color -ruN include/linux/sched.h include/linux/sched.h
 --- a/include/linux/sched.h       2024-12-27 07:00:21.000000000 +0000
 +++ b/include/linux/sched.h   2025-05-26 04:12:44.000000000 +0000
-@@ -1498,6 +1498,12 @@
-         * New fields for task_struct should be added above here, so that
-         * they are included in the randomized portion of task_struct.
-         */
-+
-+#ifdef CONFIG_KSU_SUSFS
-+       u64 susfs_task_state;
-+       u64 susfs_last_fake_mnt_id;
-+#endif
-+
-        randomized_struct_fields_end
-
-        /* CPU-specific state of this task: */
-diff --color -ruN include/linux/mount.h include/linux/mount.h
---- a/include/linux/mount.h       2024-12-27 07:00:21.000000000 +0000
-+++ b/include/linux/mount.h   2025-05-26 04:09:23.000000000 +0000
-@@ -72,6 +72,9 @@
+@@ -1494,6 +1494,10 @@
+        int drawing_flag;
+        int drawing_mig_boost;
  #endif
-        int mnt_flags;
-        void *data;
-+#ifdef CONFIG_KSU_SUSFS
-+       u64 susfs_mnt_id_backup;
-+#endif
- } __randomize_layout;
-
- struct file; /* forward dec */
-diff --color -ruN include/linux/sched.h include/linux/sched.h
---- a/include/linux/sched.h       2024-12-27 07:00:21.000000000 +0000
-+++ b/include/linux/sched.h   2025-05-26 04:12:44.000000000 +0000
-@@ -1498,6 +1498,12 @@
-         * New fields for task_struct should be added above here, so that
-         * they are included in the randomized portion of task_struct.
-         */
-+
 +#ifdef CONFIG_KSU_SUSFS
 +       u64 susfs_task_state;
 +       u64 susfs_last_fake_mnt_id;
 +#endif
-+
-        randomized_struct_fields_end
-
-        /* CPU-specific state of this task: */
-lk@kernel-dev  /home/lk/t870/kernel_source diff -ruN fs fs.new
+        /*
+         * New fields for task_struct should be added above here, so that
+         * they are included in the randomized portion of task_struct.
 diff --color -ruN fs/namespace.c fs/namespace.c
 --- a/fs/namespace.c      2025-05-26 03:48:00.687436364 +0000
 +++ b/fs/namespace.c  2025-05-26 03:53:14.000000000 +0000

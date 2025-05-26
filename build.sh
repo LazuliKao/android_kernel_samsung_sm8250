@@ -191,16 +191,16 @@ function add_susfs() {
     cd "$kernel_root"
     patch -p1 <50_add_susfs_in_$susfs_branch.patch 2>&1 | tee patch_output.log
     echo "[+] Checking for rejected patches..."
-# 2 out of 16 hunks FAILED -- saving rejects to file fs/namespace.c.rej
-# 1 out of 4 hunks FAILED -- saving rejects to file fs/notify/fdinfo.c.rej
-# 1 out of 1 hunk FAILED -- saving rejects to file fs/overlayfs/readdir.c.rej
-# 1 out of 3 hunks FAILED -- saving rejects to file fs/proc/task_mmu.c.rej
-# 1 out of 5 hunks FAILED -- saving rejects to file fs/readdir.c.rej
-# 1 out of 1 hunk FAILED -- saving rejects to file include/linux/mount.h.rej
-# 2 out of 2 hunks FAILED -- saving rejects to file include/linux/sched.h.rej
-    local patch_result=$(patch -p1 <"$build_root/kernel_patches/51_solve_rejected_susfs.patch")
+    # 2 out of 16 hunks FAILED -- saving rejects to file fs/namespace.c.rej
+    # 1 out of 4 hunks FAILED -- saving rejects to file fs/notify/fdinfo.c.rej
+    # 1 out of 1 hunk FAILED -- saving rejects to file fs/overlayfs/readdir.c.rej
+    # 1 out of 3 hunks FAILED -- saving rejects to file fs/proc/task_mmu.c.rej
+    # 1 out of 5 hunks FAILED -- saving rejects to file fs/readdir.c.rej
+    # 1 out of 1 hunk FAILED -- saving rejects to file include/linux/mount.h.rej
+    # 2 out of 2 hunks FAILED -- saving rejects to file include/linux/sched.h.rej
+    local patch_result=$(patch -p1 <"$build_root/kernel_patches/51_solve_rejected_susfs.patch" 2>&1)
+    echo "$patch_result"
     if [ $? -ne 0 ]; then
-        echo "$patch_result"
         echo "[-] Failed to apply SuSFS patches."
         echo "$patch_result" | grep -q ".rej"
         exit 1
@@ -258,6 +258,13 @@ function fix_samsung_securities() {
     _set_or_add_config CONFIG_PROCA n
     _set_or_add_config CONFIG_FIVE n
 }
+function fix_makefile() {
+    # Disable -Werror=strict-prototypes to avoid build error on old-style function definitions
+    if ! grep -q -- '-Wno-error=strict-prototypes' "$kernel_root/Makefile"; then
+        sed -i 's/-Werror=strict-prototypes/-Wno-error=strict-prototypes/' "$kernel_root/Makefile"
+        echo "[+] Disabled -Werror=strict-prototypes in Makefile"
+    fi
+}
 function add_build_script() {
     echo "[+] Adding build script..."
     cp "$build_root/build_kernel_4.19.sh" "$kernel_root/build.sh"
@@ -314,6 +321,7 @@ function main() {
     fix_kernel_su_next_susfs
     fix_driver_check
     fix_samsung_securities
+    fix_makefile
     add_build_script
 
     echo "[+] All done. You can now build the kernel."
