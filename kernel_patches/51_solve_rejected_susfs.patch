@@ -1,0 +1,210 @@
+diff --color -ruN include/linux/mount.h include/linux/mount.h
+--- a/include/linux/mount.h       2024-12-27 07:00:21.000000000 +0000
++++ b/include/linux/mount.h   2025-05-26 04:09:23.000000000 +0000
+@@ -72,6 +72,9 @@
+ #endif
+        int mnt_flags;
+        void *data;
++#ifdef CONFIG_KSU_SUSFS
++       u64 susfs_mnt_id_backup;
++#endif
+ } __randomize_layout;
+
+ struct file; /* forward dec */
+diff --color -ruN include/linux/sched.h include/linux/sched.h
+--- a/include/linux/sched.h       2024-12-27 07:00:21.000000000 +0000
++++ b/include/linux/sched.h   2025-05-26 04:12:44.000000000 +0000
+@@ -1498,6 +1498,12 @@
+         * New fields for task_struct should be added above here, so that
+         * they are included in the randomized portion of task_struct.
+         */
++
++#ifdef CONFIG_KSU_SUSFS
++       u64 susfs_task_state;
++       u64 susfs_last_fake_mnt_id;
++#endif
++
+        randomized_struct_fields_end
+
+        /* CPU-specific state of this task: */
+diff --color -ruN include/linux/mount.h include/linux/mount.h
+--- a/include/linux/mount.h       2024-12-27 07:00:21.000000000 +0000
++++ b/include/linux/mount.h   2025-05-26 04:09:23.000000000 +0000
+@@ -72,6 +72,9 @@
+ #endif
+        int mnt_flags;
+        void *data;
++#ifdef CONFIG_KSU_SUSFS
++       u64 susfs_mnt_id_backup;
++#endif
+ } __randomize_layout;
+
+ struct file; /* forward dec */
+diff --color -ruN include/linux/sched.h include/linux/sched.h
+--- a/include/linux/sched.h       2024-12-27 07:00:21.000000000 +0000
++++ b/include/linux/sched.h   2025-05-26 04:12:44.000000000 +0000
+@@ -1498,6 +1498,12 @@
+         * New fields for task_struct should be added above here, so that
+         * they are included in the randomized portion of task_struct.
+         */
++
++#ifdef CONFIG_KSU_SUSFS
++       u64 susfs_task_state;
++       u64 susfs_last_fake_mnt_id;
++#endif
++
+        randomized_struct_fields_end
+
+        /* CPU-specific state of this task: */
+lk@kernel-dev  /home/lk/t870/kernel_source diff -ruN fs fs.new
+diff --color -ruN fs/namespace.c fs/namespace.c
+--- a/fs/namespace.c      2025-05-26 03:48:00.687436364 +0000
++++ b/fs/namespace.c  2025-05-26 03:53:14.000000000 +0000
+@@ -27,6 +27,9 @@
+ #include <linux/task_work.h>
+ #include <linux/sched/task.h>
+ #include <linux/fslog.h>
++#if defined(CONFIG_KSU_SUSFS_SUS_MOUNT) || defined(CONFIG_KSU_SUSFS_TRY_UMOUNT)
++#include <linux/susfs_def.h>
++#endif
+ #ifdef CONFIG_KDP_NS
+ #include <linux/slub_def.h>
+ #include <linux/kdp.h>
+@@ -34,6 +37,30 @@
+ #include "pnode.h"
+ #include "internal.h"
+
++#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
++extern bool susfs_is_current_ksu_domain(void);
++extern bool susfs_is_current_zygote_domain(void);
++
++static DEFINE_IDA(susfs_mnt_id_ida);
++static DEFINE_IDA(susfs_mnt_group_ida);
++
++#define CL_ZYGOTE_COPY_MNT_NS BIT(24) /* used by copy_mnt_ns() */
++#define CL_COPY_MNT_NS BIT(25) /* used by copy_mnt_ns() */
++#endif
++
++#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
++extern void susfs_auto_add_sus_ksu_default_mount(const char __user *to_pathname);
++bool susfs_is_auto_add_sus_ksu_default_mount_enabled = true;
++#endif
++#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT
++extern int susfs_auto_add_sus_bind_mount(const char *pathname, struct path *path_target);
++bool susfs_is_auto_add_sus_bind_mount_enabled = true;
++#endif
++#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT
++extern void susfs_auto_add_try_umount_for_bind_mount(struct path *path);
++bool susfs_is_auto_add_try_umount_for_bind_mount_enabled = true;
++#endif
++
+ #ifdef CONFIG_KDP_NS
+ #define KDP_MOUNT_SYSTEM "/system"
+ #define KDP_MOUNT_SYSTEM_LEN strlen(KDP_MOUNT_SYSTEM)
+@@ -3682,6 +3709,15 @@
+        copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;
+        if (user_ns != ns->user_ns)
+                copy_flags |= CL_SHARED_TO_SLAVE | CL_UNPRIVILEGED;
++#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
++       // Always let clone_mnt() in copy_tree() know it is from copy_mnt_ns()
++       copy_flags |= CL_COPY_MNT_NS;
++       if (is_zygote_pid) {
++               // Let clone_mnt() in copy_tree() know copy_mnt_ns() is run by zygote process
++               copy_flags |= CL_ZYGOTE_COPY_MNT_NS;
++       }
++#endif
++
+ #ifdef CONFIG_KDP_NS
+        new = copy_tree(old, old->mnt->mnt_root, copy_flags);
+ #else
+diff --color -ruN fs/notify/fdinfo.c fs/notify/fdinfo.c
+--- a/fs/notify/fdinfo.c  2025-05-26 03:48:00.687921493 +0000
++++ b/fs/notify/fdinfo.c      2025-05-26 03:55:14.000000000 +0000
+@@ -101,6 +101,36 @@
+        inode_mark = container_of(mark, struct inotify_inode_mark, fsn_mark);
+        inode = igrab(fsnotify_conn_inode(mark->connector));
+        if (inode) {
++#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
++               if (likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC) &&
++                               unlikely(inode->i_state & INODE_STATE_SUS_KSTAT)) {
++                       struct path path;
++                       char *pathname = kmalloc(PAGE_SIZE, GFP_KERNEL);
++                       char *dpath;
++                       if (!pathname) {
++                               goto out_seq_printf;
++                       }
++                       dpath = d_path(&file->f_path, pathname, PAGE_SIZE);
++                       if (!dpath) {
++                               goto out_free_pathname;
++                       }
++                       if (kern_path(dpath, 0, &path)) {
++                               goto out_free_pathname;
++                       }
++                       seq_printf(m, "inotify wd:%x ino:%lx sdev:%x mask:%x ignored_mask:0 ",
++                          inode_mark->wd, path.dentry->d_inode->i_ino, path.dentry->d_inode->i_sb->s_dev,
++                          inotify_mark_user_mask(mark));
++                       show_mark_fhandle(m, path.dentry->d_inode);
++                       seq_putc(m, '\n');
++                       iput(inode);
++                       path_put(&path);
++                       kfree(pathname);
++                       return;
++out_free_pathname:
++                       kfree(pathname);
++               }
++out_seq_printf:
++#endif
+                /*
+                 * IN_ALL_EVENTS represents all of the mask bits
+                 * that we expose to userspace.  There is at
+diff --color -ruN fs/overlayfs/readdir.c fs/overlayfs/readdir.c
+--- a/fs/overlayfs/readdir.c      2024-12-27 07:00:20.000000000 +0000
++++ b/fs/overlayfs/readdir.c  2025-05-26 03:56:55.000000000 +0000
+@@ -915,8 +915,18 @@
+        od = kzalloc(sizeof(struct ovl_dir_file), GFP_KERNEL);
+        if (!od)
+                return -ENOMEM;
+-
++#ifdef CONFIG_KSU_SUSFS_SUS_OVERLAYFS
++       ovl_path_lowerdata(file->f_path.dentry, &realpath);
++       if (likely(realpath.mnt && realpath.dentry)) {
++               // We still use '__OVL_PATH_UPPER' here which should be fine.
++               type = __OVL_PATH_UPPER;
++               goto bypass_orig_flow;
++       }
++#endif
+        type = ovl_path_real(file->f_path.dentry, &realpath);
++#ifdef CONFIG_KSU_SUSFS_SUS_OVERLAYFS
++bypass_orig_flow:
++#endif
+        realfile = ovl_dir_open_realfile(file, &realpath);
+        if (IS_ERR(realfile)) {
+                kfree(od);
+diff --color -ruN fs/proc/task_mmu.c fs/proc/task_mmu.c
+--- a/fs/proc/task_mmu.c  2025-05-26 03:48:00.688511934 +0000
++++ b/fs/proc/task_mmu.c      2025-05-26 04:00:28.000000000 +0000
+@@ -22,6 +22,9 @@
+ #include <linux/mm_inline.h>
+ #include <linux/freezer.h>
+ #include <linux/ctype.h>
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
++#include <linux/susfs_def.h>
++#endif
+
+ #include <asm/elf.h>
+ #include <asm/tlb.h>
+diff --color -ruN fs/readdir.c fs/readdir.c
+--- a/fs/readdir.c        2025-05-26 03:48:00.688703508 +0000
++++ b/fs/readdir.c    2025-05-26 04:02:09.000000000 +0000
+@@ -414,6 +414,11 @@
+
+        if (buf->result)
+                return -EINVAL;
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++       if (likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC) && susfs_sus_ino_for_filldir64(ino)) {
++               return 0;
++       }
++#endif
+        d_ino = ino;
+        if (sizeof(d_ino) < sizeof(ino) && d_ino != ino) {
+                buf->result = -EOVERFLOW;

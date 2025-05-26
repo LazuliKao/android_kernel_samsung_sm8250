@@ -49,28 +49,18 @@ _set_or_add_config() {
         echo "Added $key=$value to $custom_config_file"
     fi
 }
-function extract_toolchains() {
-    echo "[+] Extracting toolchains..."
-    if [ -d "$toolchains_root" ]; then
-        echo "[+] Toolchains directory already exists. Skipping extraction."
-        return 0
-    fi
-    local toolchains_file="toolchain.tar.gz"
-    # extract the toolchains from the official source code
-    echo "[+] toolchains not found. Extracting from $toolchains_file..."
-    if [ ! -f "$toolchains_file" ]; then
-        echo "Please download the official toolchians from Samsung Open Source Release Center."
-        echo "link: https://opensource.samsung.com/uploadSearch?searchValue=S24(Qualcomm)"
-        exit 1
-    fi
+function download_toolchains() {
     mkdir -p "$toolchains_root"
-    tar -xzf "$toolchains_file" -C "$toolchains_root" --strip-components=1
-    if [ $? -ne 0 ]; then
-        echo "[-] Failed to extract toolchains from $toolchains_file."
-        rm -rf "$toolchains_root"
-        exit 1
+    # Clone proton clang 12 if not already done
+    if [ ! -d "$toolchains_root/proton-12" ]; then
+        git clone --depth=1 https://github.com/ravindu644/proton-12.git "$toolchains_root/proton-12"
     fi
-    echo "[+] Toolchains extracted successfully to $toolchains_root."
+    # Download and extract Linaro 7.5 if not already done
+    if [ ! -d "$toolchains_root/aarch64-linaro-7.5" ]; then
+        cd "$toolchains_root"
+        wget https://kali.download/nethunter-images/toolchains/linaro-aarch64-7.5.tar.xz
+        tar -xvf linaro-aarch64-7.5.tar.xz && rm linaro-aarch64-7.5.tar.xz
+    fi
 }
 function prepare_source() {
     if [ ! -d "$kernel_root" ]; then
@@ -124,7 +114,7 @@ function extract_kernel_config() {
     fi
     if [ -f "boot.img.lz4" ]; then
         # use lz4 to decompress it
-        lz4 -d boot.img.lz4 boot.img
+        lz4 -d -f boot.img.lz4 boot.img
     else
         if [ -f "boot.img" ]; then
             echo "boot.img already exists, skipping decompression."
@@ -167,28 +157,6 @@ function add_kernelsu_next() {
     cd "$build_root"
     echo "[+] KernelSU Next added successfully."
 }
-function __fix_patch() {
-    cp "$build_root/kernel_patches/fix_patch.patch" "$kernel_root"
-    echo "[+] Fixing patch..."
-    cd "$kernel_root"
-    patch -p1 -l <fix_patch.patch
-    if [ $? -ne 0 ]; then
-        echo "[-] Failed to apply fix patch."
-        exit 1
-    fi
-    echo "[+] Fix patch applied successfully."
-}
-function __restore_fix_patch() {
-    echo "[+] Restoring fix patch..."
-    cp "$build_root/kernel_patches/fix_patch_reverse.patch" "$kernel_root"
-    cd "$kernel_root"
-    patch -p1 -l <fix_patch_reverse.patch
-    if [ $? -ne 0 ]; then
-        echo "[-] Failed to restore fix patch."
-        exit 1
-    fi
-    echo "[+] Fix patch restored successfully."
-}
 function add_susfs() {
     local susfs_dir="$build_root/susfs"
     if [ ! -d "$susfs_dir" ]; then
@@ -221,8 +189,16 @@ function add_susfs() {
     fi
     echo "[+] Applying SuSFS patches..."
     cd "$kernel_root"
-    __fix_patch # remove some samsung's changes, then susfs can be applied
-    local patch_result=$(patch -p1 <50_add_susfs_in_$susfs_branch.patch)
+    patch -p1 <50_add_susfs_in_$susfs_branch.patch 2>&1 | tee patch_output.log
+    echo "[+] Checking for rejected patches..."
+# 2 out of 16 hunks FAILED -- saving rejects to file fs/namespace.c.rej
+# 1 out of 4 hunks FAILED -- saving rejects to file fs/notify/fdinfo.c.rej
+# 1 out of 1 hunk FAILED -- saving rejects to file fs/overlayfs/readdir.c.rej
+# 1 out of 3 hunks FAILED -- saving rejects to file fs/proc/task_mmu.c.rej
+# 1 out of 5 hunks FAILED -- saving rejects to file fs/readdir.c.rej
+# 1 out of 1 hunk FAILED -- saving rejects to file include/linux/mount.h.rej
+# 2 out of 2 hunks FAILED -- saving rejects to file include/linux/sched.h.rej
+    local patch_result=$(patch -p1 <"$build_root/kernel_patches/51_solve_rejected_susfs.patch")
     if [ $? -ne 0 ]; then
         echo "$patch_result"
         echo "[-] Failed to apply SuSFS patches."
@@ -232,7 +208,6 @@ function add_susfs() {
         echo "[+] SuSFS patches applied successfully."
         echo "$patch_result" | grep -q ".rej"
     fi
-    __restore_fix_patch # restore removed samsung's changes
     echo "[+] SuSFS added successfully."
 }
 function fix_kernel_su_next_susfs() {
@@ -330,7 +305,7 @@ function main() {
         return $?
     fi
 
-    extract_toolchains
+    download_toolchains
     clean
     prepare_source
     extract_kernel_config
