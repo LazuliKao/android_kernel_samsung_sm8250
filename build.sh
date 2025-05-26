@@ -8,12 +8,22 @@ susfs_branch="kernel-4.19"
 function clean() {
     rm -rf "$kernel_root"
 }
+function get_kernel_version() {
+    cd "$kernel_root"
+    if command -v make &>/dev/null; then
+        make kernelversion 2>/dev/null
+    else
+        echo "make command not found. Please install make."
+        exit 1
+    fi
+    cd - >/dev/null
+}
 function prepare_source() {
     if [ ! -d "$kernel_root" ]; then
         # extract the official source code
         echo "[+] Extracting official source code..."
         if [ ! -f "Kernel.tar.gz" ]; then
-            echo "Kernel.tar.gz not found. Extracting from $official_source..."
+            echo "[+] Kernel.tar.gz not found. Extracting from $official_source..."
             if [ ! -f "$official_source" ]; then
                 echo "Please download the official source code from Samsung Open Source Release Center."
                 echo "link: https://opensource.samsung.com/uploadSearch?searchValue=T870"
@@ -32,7 +42,7 @@ function prepare_source() {
         fi
         cd "$kernel_root"
         echo "[+] Checking kernel version..."
-        local kernel_version=$(make kernelversion)
+        local kernel_version=$(get_kernel_version)
         local kernel_kmi_version=$(echo $kernel_version | cut -d '.' -f 1-2)
         echo "[+] Kernel version: $kernel_version, KMI version: $kernel_kmi_version"
         # only support 4.19
