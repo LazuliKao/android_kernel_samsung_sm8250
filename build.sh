@@ -189,6 +189,9 @@ function add_susfs() {
     fi
     echo "[+] Applying SuSFS patches..."
     cd "$kernel_root"
+    echo "[+] fix lib stpcpy..."
+    patch -p1 -l <"$build_root/kernel_patches/add_stpcpy.patch"
+    echo "[+] Applying patch 50_add_susfs_in_$susfs_branch.patch..."
     patch -p1 -l <50_add_susfs_in_$susfs_branch.patch 2>&1 | tee patch_output.log
     echo "[+] Checking for rejected patches..."
     # 2 out of 16 hunks FAILED -- saving rejects to file fs/namespace.c.rej
@@ -199,7 +202,6 @@ function add_susfs() {
     # 1 out of 1 hunk FAILED -- saving rejects to file include/linux/mount.h.rej
     # 2 out of 2 hunks FAILED -- saving rejects to file include/linux/sched.h.rej
     local patch_result=$(patch -p1 -l <"$build_root/kernel_patches/51_solve_rejected_susfs.patch" 2>&1)
-    echo "$patch_result"
     if [ $? -ne 0 ]; then
         echo "[-] Failed to apply SuSFS patches."
         echo "$patch_result" | grep -q ".rej"
@@ -264,10 +266,10 @@ function fix_makefile() {
         sed -i 's/-Werror=strict-prototypes/-Wno-error=strict-prototypes/' "$kernel_root/Makefile"
         echo "[+] Disabled -Werror=strict-prototypes in Makefile"
     fi
-    if ! grep -q -- '-Wno-error=implicit-function-declaration' "$kernel_root/Makefile"; then
-        sed -i 's/-Werror=implicit-function-declaration/-Wno-error=implicit-function-declaration/' "$kernel_root/Makefile"
-        echo "[+] Disabled -Werror=implicit-function-declaration in Makefile"
-    fi
+    # if ! grep -q -- '-Wno-error=implicit-function-declaration' "$kernel_root/Makefile"; then
+    #     sed -i 's/-Werror=implicit-function-declaration/-Wno-error=implicit-function-declaration/' "$kernel_root/Makefile"
+    #     echo "[+] Disabled -Werror=implicit-function-declaration in Makefile"
+    # fi
 }
 function add_build_script() {
     echo "[+] Adding build script..."
@@ -275,6 +277,19 @@ function add_build_script() {
     sed -i "s/gki_defconfig/$custom_config_name/" "$kernel_root/build.sh"
     chmod +x "$kernel_root/build.sh"
     echo "[+] Build script added successfully."
+}
+function fix_jopp_springboard_blr_x17_error() {
+    #  init/cfp.S
+    _set_config CONFIG_CFP_ROPP n
+}
+function init_git_repo() {
+    cd "$kernel_root"
+    git init
+    echo "*" >.gitignore
+    echo '!build.sh' >>.gitignore
+    git add .
+    git commit -m "Initial commit"
+    cd "$build_root"
 }
 function build_container() {
     echo "[+] Building Docker container for kernel compilation..."
@@ -326,7 +341,9 @@ function main() {
     fix_driver_check
     fix_samsung_securities
     fix_makefile
+    fix_jopp_springboard_blr_x17_error
     add_build_script
+    init_git_repo
 
     echo "[+] All done. You can now build the kernel."
     echo "[+] Please 'cd $kernel_root'"

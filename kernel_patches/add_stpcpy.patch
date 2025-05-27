@@ -1,0 +1,23 @@
+--- a/lib/string.c
++++ b/lib/string.c
+@@ -94,6 +94,20 @@
+        return tmp;
+ }
+ EXPORT_SYMBOL(strcpy);
++/**
++ * stpcpy - Copy a NUL terminated string and return a pointer to the end
++ * @dest: Where to copy the string to
++ * @src: Where to copy the string from
++ *
++ * This is like strcpy, but returns a pointer to the NUL byte in @dest.
++ */
++char *stpcpy(char *dest, const char *src)
++{
++       while ((*dest = *src++) != '\0')
++               dest++;
++       return dest;
++}
++EXPORT_SYMBOL(stpcpy);
+ #endif
+
+ #ifndef __HAVE_ARCH_STRNCPY

@@ -11,10 +11,10 @@ function prepare_toolchain() {
     local TOOLCHAIN=$(realpath "../toolchains")
 
     if [ ! -f ".requirements" ]; then
-        sudo apt update && sudo apt install -y git device-tree-compiler lz4 xz-utils zlib1g-dev openjdk-17-jdk gcc g++ python3 python-is-python3 p7zip-full android-sdk-libsparse-utils erofs-utils \
+        sudo apt update && sudo apt install -y git device-tree-compiler lz4 xz-utils zlib1g-dev openjdk-17-jdk gcc g++ python3 p7zip-full android-sdk-libsparse-utils \
             default-jdk git gnupg flex bison gperf build-essential zip curl libc6-dev libncurses-dev libx11-dev libreadline-dev libgl1 libgl1-mesa-dev \
-            python3 make sudo gcc g++ bc grep tofrodos python3-markdown libxml2-utils xsltproc zlib1g-dev python-is-python3 libc6-dev libtinfo6 \
-            make repo cpio kmod openssl libelf-dev pahole libssl-dev --fix-missing && wget http://security.ubuntu.com/ubuntu/pool/universe/n/ncurses/libtinfo5_6.3-2ubuntu0.1_amd64.deb && sudo dpkg -i libtinfo5_6.3-2ubuntu0.1_amd64.deb && touch .requirements
+            python3 make sudo gcc g++ bc grep tofrodos python3-markdown libxml2-utils xsltproc zlib1g-dev libc6-dev libtinfo5 \
+            make repo cpio kmod openssl libelf-dev libssl-dev --fix-missing && touch .requirements
     fi
 
     # Create necessary directories
@@ -54,6 +54,7 @@ CC=${BUILD_CC} \
 CLANG_TRIPLE=aarch64-linux-gnu- \
 LOCALVERSION=${LOCALVERSION} \
 LTO=${LTO} \
+CONFIG_DEBUG_SECTION_MISMATCH=y \
 "
     # Make default configuration.
     make ${BUILD_OPTIONS} $TARGET_DEFCONFIG
@@ -85,7 +86,6 @@ function build_kernel() {
     cp "${KERNEL_ROOT}/out/arch/arm64/boot/Image" "$output_kernel"
     echo -e "\n[INFO]: Kernel built successfully and copied to $output_kernel\n"
 }
-
 function repack_stock_img() {
     local stock_boot_img="$KERNEL_ROOT/stock/boot.img"
     if [ ! -f "$stock_boot_img" ]; then
