@@ -189,7 +189,7 @@ function add_susfs() {
     fi
     echo "[+] Applying SuSFS patches..."
     cd "$kernel_root"
-    patch -p1 <50_add_susfs_in_$susfs_branch.patch 2>&1 | tee patch_output.log
+    patch -p1 -l <50_add_susfs_in_$susfs_branch.patch 2>&1 | tee patch_output.log
     echo "[+] Checking for rejected patches..."
     # 2 out of 16 hunks FAILED -- saving rejects to file fs/namespace.c.rej
     # 1 out of 4 hunks FAILED -- saving rejects to file fs/notify/fdinfo.c.rej
@@ -198,7 +198,7 @@ function add_susfs() {
     # 1 out of 5 hunks FAILED -- saving rejects to file fs/readdir.c.rej
     # 1 out of 1 hunk FAILED -- saving rejects to file include/linux/mount.h.rej
     # 2 out of 2 hunks FAILED -- saving rejects to file include/linux/sched.h.rej
-    local patch_result=$(patch -p1 <"$build_root/kernel_patches/51_solve_rejected_susfs.patch" 2>&1)
+    local patch_result=$(patch -p1 -l <"$build_root/kernel_patches/51_solve_rejected_susfs.patch" 2>&1)
     echo "$patch_result"
     if [ $? -ne 0 ]; then
         echo "[-] Failed to apply SuSFS patches."
@@ -215,7 +215,7 @@ function fix_kernel_su_next_susfs() {
     _set_or_add_config CONFIG_KSU_SUSFS_SUS_SU n
     echo "[+] Fix building KernelSU Next with SuSFS..."
     cd "$kernel_root"
-    patch -p1 <"$build_root/kernel_patches/fix_ksun_with_susfs.patch"
+    patch -p1 -l <"$build_root/kernel_patches/fix_ksun_with_susfs.patch"
     if [ $? -ne 0 ]; then
         echo "[-] Failed to apply fix patch for KernelSU Next with SuSFS."
         exit 1
@@ -227,7 +227,7 @@ function fix_driver_check() {
     cd "$build_root"
     cp "$build_root/kernel_patches/driver_fix.patch" "$kernel_root"
     cd "$kernel_root"
-    patch -p1 <driver_fix.patch
+    patch -p1 -l <driver_fix.patch
     if [ $? -ne 0 ]; then
         echo "[-] Failed to apply driver fix patch."
         exit 1
@@ -263,6 +263,10 @@ function fix_makefile() {
     if ! grep -q -- '-Wno-error=strict-prototypes' "$kernel_root/Makefile"; then
         sed -i 's/-Werror=strict-prototypes/-Wno-error=strict-prototypes/' "$kernel_root/Makefile"
         echo "[+] Disabled -Werror=strict-prototypes in Makefile"
+    fi
+    if ! grep -q -- '-Wno-error=implicit-function-declaration' "$kernel_root/Makefile"; then
+        sed -i 's/-Werror=implicit-function-declaration/-Wno-error=implicit-function-declaration/' "$kernel_root/Makefile"
+        echo "[+] Disabled -Werror=implicit-function-declaration in Makefile"
     fi
 }
 function add_build_script() {
