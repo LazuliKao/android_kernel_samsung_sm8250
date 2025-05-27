@@ -5,6 +5,42 @@ export ARCH=arm64
 export KBUILD_BUILD_USER="@lk"
 LOCALVERSION=-android12-lk
 TARGET_DEFCONFIG=${1:-gki_defconfig}
+function add_secgetspf() {
+    #> grep -r secgetspf .
+    # ./drivers/net/wireless/qualcomm/qca6390/qcacld-3.0/Kbuild:ifeq ($(shell secgetspf SEC_PRODUCT_FEATURE_WLAN_SUPPORT_MIMO), TRUE)
+    # ./Makefile:  ifneq ($(shell secgetspf SEC_PRODUCT_FEATURE_BIOAUTH_CONFIG_FINGERPRINT_TZ), false)
+    # ./Makefile:ifneq ($(shell secgetspf SEC_PRODUCT_FEATURE_COMMON_CONFIG_SEP_VERSION),)
+    # ./Makefile:      SEP_MAJOR_VERSION := $(shell secgetspf SEC_PRODUCT_FEATURE_COMMON_CONFIG_SEP_VERSION | cut -f1 -d.)
+    # ./Makefile:      SEP_MINOR_VERSION := $(shell secgetspf SEC_PRODUCT_FEATURE_COMMON_CONFIG_SEP_VERSION | cut -f2 -d.)
+    echo "[+] Adding secgetspf function to fix Samsung features..."
+    cat >"$KERNEL_ROOT/scripts/secgetspf.c" <<'EOF'
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        return 1;
+    }
+    // Simulate Samsung's feature detection based on feature name
+    if (strstr(argv[1], "WLAN_SUPPORT_MIMO") != NULL) {
+        printf("FALSE\n");
+    } else if (strstr(argv[1], "BIOAUTH_CONFIG_FINGERPRINT_TZ") != NULL) {
+        printf("true\n");
+    } else if (strstr(argv[1], "COMMON_CONFIG_SEP_VERSION") != NULL) {
+        printf("1.0\n");
+    } else {
+        printf("\n");
+    }
+    
+    return 0;
+}
+EOF
+
+    # Compile the secgetspf utility
+    gcc -o "$KERNEL_ROOT/scripts/secgetspf" "$KERNEL_ROOT/scripts/secgetspf.c"
+    export PATH="$PATH:$KERNEL_ROOT/scripts"
+}
 
 function prepare_toolchain() {
     # Install the requirements for building the kernel when running the script for the first time
@@ -145,6 +181,7 @@ function repack_stock_img() {
 
 main() {
     echo -e "\n[INFO]: BUILD STARTED..!\n"
+    add_secgetspf
     prepare_toolchain
     prepare_config
     build_kernel

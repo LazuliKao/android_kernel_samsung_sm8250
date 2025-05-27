@@ -10,6 +10,47 @@ function clean() {
     rm -rf "$kernel_root"
 }
 
+function add_secgetspf() {
+    echo "[+] Adding secgetspf function to fix Samsung features..."
+    cat > "$kernel_root/scripts/secgetspf.c" << 'EOF'
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        return 1;
+    }
+    
+    // Simulate Samsung's feature detection based on feature name
+    if (strstr(argv[1], "WLAN_SUPPORT_MIMO") != NULL) {
+        printf("FALSE\n");
+    } else if (strstr(argv[1], "BIOAUTH_CONFIG_FINGERPRINT_TZ") != NULL) {
+        printf("true\n");
+    } else if (strstr(argv[1], "COMMON_CONFIG_SEP_VERSION") != NULL) {
+        printf("1.0\n");
+    } else {
+        printf("\n");
+    }
+    
+    return 0;
+}
+EOF
+
+    # Compile the secgetspf utility
+    gcc -o "$kernel_root/scripts/secgetspf" "$kernel_root/scripts/secgetspf.c"
+    
+    # Add the scripts directory to PATH in the build script
+    sed -i '/export PATH=/a export PATH=$PWD/scripts:$PATH' "$kernel_root/build.sh"
+    
+    if [ $? -eq 0 ]; then
+        echo "[+] secgetspf function added successfully"
+    else
+        echo "[-] Failed to add secgetspf function"
+        exit 1
+    fi
+}
+
 custom_config_name="pineapple_gki_defconfig"
 custom_config_file="$kernel_root/arch/arm64/configs/$custom_config_name"
 function get_kernel_version() {
@@ -282,6 +323,18 @@ function fix_jopp_springboard_blr_x17_error() {
     #  init/cfp.S
     _set_config CONFIG_CFP_ROPP n
 }
+function fix_path_umount(){
+    # Fix path umount error
+    echo "[+] Adding EXPORT_SYMBOL(path_umount) to fix module loading errors..."
+    if ! grep -q "EXPORT_SYMBOL(path_umount)" "$kernel_root/fs/namespace.c"; then
+        # Find the end of the file
+        line_number=$(wc -l < "$kernel_root/fs/namespace.c")
+        sed -i '/^static bool is_mnt_ns_file/i EXPORT_SYMBOL(path_umount)' "$kernel_root/fs/namespace.c"
+        echo "[+] EXPORT_SYMBOL(path_umount) added to fs/namespace.c"
+    else
+        echo "[+] EXPORT_SYMBOL(path_umount) already exists in fs/namespace.c"
+    fi
+}
 function init_git_repo() {
     cd "$kernel_root"
     git init
@@ -342,6 +395,7 @@ function main() {
     fix_samsung_securities
     fix_makefile
     fix_jopp_springboard_blr_x17_error
+    fix_path_umount
     add_build_script
     init_git_repo
 
