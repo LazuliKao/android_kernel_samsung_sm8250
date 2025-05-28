@@ -190,6 +190,14 @@ function extract_kernel_config() {
         exit 1
     fi
     echo "[+] Stock boot.img copied successfully."
+    # https://github.com/ravindu644/Android-Kernel-Tutorials/?tab=readme-ov-file#02-fix-theres-an-internal-problem-with-your-device-issue
+    cd "$kernel_root"
+    echo "[+] Copy stock_config to kernel source..."
+    tail -n +2 "$build_root/boot.img.build.conf" >"$kernel_root/arch/arm64/configs/stock_defconfig"
+    echo "[+] Fix: 'There's an internal problem with your device.' issue."
+    # $(obj)/config_data.gz: .*
+    # $(obj)/config_data.gz: arch/arm64/configs/stock_defconfig FORCE
+    sed -i 's/$(obj)\/config_data\.gz: .*/$(obj)\/config_data\.gz: arch\/arm64\/configs\/stock_defconfig FORCE/' "$kernel_root/kernel/Makefile"
 }
 function add_kernelsu_next() {
     echo "[+] Adding KernelSU Next..."
