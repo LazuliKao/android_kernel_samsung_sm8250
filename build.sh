@@ -12,7 +12,7 @@ function clean() {
 
 function add_secgetspf() {
     echo "[+] Adding secgetspf function to fix Samsung features..."
-    cat > "$kernel_root/scripts/secgetspf.c" << 'EOF'
+    cat >"$kernel_root/scripts/secgetspf.c" <<'EOF'
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,10 +39,10 @@ EOF
 
     # Compile the secgetspf utility
     gcc -o "$kernel_root/scripts/secgetspf" "$kernel_root/scripts/secgetspf.c"
-    
+
     # Add the scripts directory to PATH in the build script
     sed -i '/export PATH=/a export PATH=$PWD/scripts:$PATH' "$kernel_root/build.sh"
-    
+
     if [ $? -eq 0 ]; then
         echo "[+] secgetspf function added successfully"
     else
@@ -323,17 +323,22 @@ function fix_jopp_springboard_blr_x17_error() {
     #  init/cfp.S
     _set_config CONFIG_CFP_ROPP n
 }
-function fix_path_umount(){
+function fix_path_umount() {
     # Fix path umount error
     echo "[+] Adding EXPORT_SYMBOL(path_umount) to fix module loading errors..."
     if ! grep -q "EXPORT_SYMBOL(path_umount)" "$kernel_root/fs/namespace.c"; then
         # Find the end of the file
-        line_number=$(wc -l < "$kernel_root/fs/namespace.c")
-        sed -i '/^static bool is_mnt_ns_file/i EXPORT_SYMBOL(path_umount)' "$kernel_root/fs/namespace.c"
+        line_number=$(wc -l <"$kernel_root/fs/namespace.c")
+        sed -i '/^struct mnt_namespace \*to_mnt_ns/i EXPORT_SYMBOL(path_umount);' "$kernel_root/fs/namespace.c"
         echo "[+] EXPORT_SYMBOL(path_umount) added to fs/namespace.c"
     else
         echo "[+] EXPORT_SYMBOL(path_umount) already exists in fs/namespace.c"
     fi
+}
+function fix_callsyms() {
+    echo "[+] Adding CONFIG_KALLSYMS for LKM..."
+    _set_or_add_config CONFIG_KALLSYMS y
+    _set_or_add_config CONFIG_KALLSYMS_ALL y
 }
 function init_git_repo() {
     cd "$kernel_root"
@@ -343,6 +348,22 @@ function init_git_repo() {
     git add .
     git commit -m "Initial commit"
     cd "$build_root"
+    echo "[+] Fake Git repository initialized in $kernel_root"
+    # TODO: fix this error
+    # fatal: ambiguous argument '748142f~..HEAD': unknown revision or path not in the working tree.
+    # Use '--' to separate paths from revisions, like this:
+    # 'git <command> [<revision>...] -- [<file>...]'
+    # > grep -r "git.*\.\.HEAD" .
+    # ./drivers/net/wireless/qualcomm/qca6390/qcacld-3.0/Kbuild:      git log -50 $(CLD_CHECKOUT)~..HEAD | \
+    # ./drivers/net/wireless/qualcomm/qca6390/qcacld-3.0/Kbuild:      git log -50 $(CMN_CHECKOUT)~..HEAD | \
+
+    # it does not effect, hmm...
+    # _set_or_add_config CONFIG_BUILD_TAG n
+
+    # force disable in config
+    # ifeq ($(CONFIG_BUILD_TAG), y)
+    sed -i 's/ifeq ($(CONFIG_BUILD_TAG), y)/ifeq ($(CONFIG_BUILD_TAG), n)/' "$kernel_root/drivers/net/wireless/qualcomm/qca6390/qcacld-3.0/Kbuild"
+    echo "[+] CONFIG_BUILD_TAG set to n in Kbuild"
 }
 function build_container() {
     echo "[+] Building Docker container for kernel compilation..."
@@ -398,6 +419,7 @@ function main() {
     fix_path_umount
     add_build_script
     init_git_repo
+    fix_callsyms
 
     echo "[+] All done. You can now build the kernel."
     echo "[+] Please 'cd $kernel_root'"
