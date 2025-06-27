@@ -15,7 +15,7 @@ custom_config_name="custom_defconfig"
 custom_config_file="$kernel_root/arch/arm64/configs/$custom_config_name"
 
 # Load utility functions
-lib_file="$build_root/scripts/lib.sh"
+lib_file="$build_root/scripts/utils/lib.sh"
 if [ -f "$lib_file" ]; then
     source "$lib_file"
 else
@@ -23,7 +23,7 @@ else
     echo "[-] Please ensure lib.sh exists in the build directory"
     exit 1
 fi
-core_file="$build_root/scripts/core.sh"
+core_file="$build_root/scripts/utils/core.sh"
 if [ -f "$core_file" ]; then
     source "$core_file"
 else

@@ -115,6 +115,9 @@ CONFIG_DEBUG_SECTION_MISMATCH=y \
 }
 
 function build_kernel() {
+    if [ -d "${KERNEL_ROOT}/drivers/kernelsu" ]; then
+        make M=drivers/kernelsu clean
+    fi
     # Build the kernel
     make ${BUILD_OPTIONS} Image || exit 1
     # Copy the built kernel to the build directory
