@@ -119,7 +119,7 @@ function add_susfs() {
     add_susfs_prepare
     echo "[+] Applying SuSFS patches..."
     cd "$kernel_root"
-    local patch_result=$(patch -p1 <50_add_susfs_in_$susfs_branch.patch)
+    local patch_result=$(patch -p1 -l --forward --fuzz=3 <50_add_susfs_in_$susfs_branch.patch 2>&1)
     if [ $? -ne 0 ]; then
         echo "$patch_result"
         echo "[-] Failed to apply SuSFS patches."
@@ -177,7 +177,7 @@ function main() {
     fix_path_umount
     add_build_script
     init_git_repo
-    fix_callsyms
+    fix_callsyms_for_lkm
 
     echo "[+] All done. You can now build the kernel."
     echo "[+] Please 'cd $kernel_root'"

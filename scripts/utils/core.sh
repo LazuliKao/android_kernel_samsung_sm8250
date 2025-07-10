@@ -4,6 +4,9 @@ export GIT_ADVICE_DETACHED_HEAD=false
 
 clean() {
     rm -rf "$kernel_root"
+    if [ -d "susfs" ]; then
+        rm -rf "susfs"
+    fi
 }
 
 prepare_source() {

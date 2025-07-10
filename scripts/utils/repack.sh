@@ -109,7 +109,13 @@ pack_anykernel() {
     fi
 
     echo "[+] Cloning AnyKernel3..."
-    git clone --branch arm64-tools https://github.com/osm0sis/AnyKernel3 "$anykernel_dir"
+    git clone --depth 1 https://github.com/osm0sis/AnyKernel3 "$anykernel_dir"
+    rm -rf "$anykernel_dir/.git"
+    echo "[+] Cloning arm64-tools branch of AnyKernel3..."
+    git clone --depth 1 --branch arm64-tools https://github.com/osm0sis/AnyKernel3 "$anykernel_dir/tools_arm64"
+    rm -rf "$anykernel_dir/tools_arm64/.git"
+    cp -r "$anykernel_dir/tools_arm64"/* "$anykernel_dir/tools/"
+    rm -rf "$anykernel_dir/tools_arm64"
 
     pushd "$anykernel_dir" >/dev/null
     cp "$new_kernel" zImage

@@ -5,6 +5,8 @@ export ARCH=arm64
 export KBUILD_BUILD_USER="@lk"
 LOCALVERSION=-android12-lk
 TARGET_DEFCONFIG=${1:-gki_defconfig}
+DEVICE_NAME_LIST="gts7lwifi"
+
 function add_secgetspf() {
     #> grep -r secgetspf .
     # ./drivers/net/wireless/qualcomm/qca6390/qcacld-3.0/Kbuild:ifeq ($(shell secgetspf SEC_PRODUCT_FEATURE_WLAN_SUPPORT_MIMO), TRUE)

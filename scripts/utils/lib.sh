@@ -93,6 +93,12 @@ _apply_patch() {
         echo "[-] Please check the patch file and try again."
         return 1
     fi
+    if echo "$patch_result" | grep -q ".rej"; then
+        echo "[-] Patch applied with rejected hunks. Please check the .rej files."
+        echo "$patch_result" | grep ".rej"
+        return 1
+    fi
+    echo "[+] Patch applied successfully: $1"
     return 0
 }
 
@@ -115,6 +121,11 @@ _apply_patch_strict() {
         echo "[-] Failed to apply patch: $1"
         echo "$patch_result"
         echo "[-] Please check the patch file and try again."
+        return 1
+    fi
+    if echo "$patch_result" | grep -q ".rej"; then
+        echo "[-] Patch applied with rejected hunks. Please check the .rej files."
+        echo "$patch_result" | grep ".rej"
         return 1
     fi
     return 0
