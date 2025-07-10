@@ -125,61 +125,39 @@ function build_kernel() {
     cp "${KERNEL_ROOT}/out/arch/arm64/boot/Image" "$output_kernel"
     echo -e "\n[INFO]: Kernel built successfully and copied to $output_kernel\n"
 }
-function repack_stock_img() {
+
+function repack() {
     local stock_boot_img="$KERNEL_ROOT/stock/boot.img"
-    if [ ! -f "$stock_boot_img" ]; then
-        echo "[-] boot.img not found. Skipping repack."
-        return 0
-    fi
-    local build_dir="${KERNEL_ROOT}/build"
-    local output_kernel_build="$build_dir/out"
-    if [ ! -d "$output_kernel_build" ]; then
-        mkdir -p "$output_kernel_build"
-    fi
-    # local image="$output_kernel_build/boot.img"
-    # cp "$stock_boot_img" "$image"
-    local output_kernel_build_tools="$build_dir/tools"
-    # download magiskboot
-    local magiskboot="$output_kernel_build_tools/magiskboot"
-    if [ ! -f "$magiskboot" ]; then
-        echo "[-] magiskboot not found. Downloading..."
-        mkdir -p "$output_kernel_build_tools"
-        local magiskzip="$output_kernel_build/magisk.zip"
-        wget https://github.com/topjohnwu/Magisk/releases/download/v29.0/Magisk-v29.0.apk -O "$magiskzip"
-        local output_kernel_build_tools="${KERNEL_ROOT}/build/tools"
-        if [ ! -d "$output_kernel_build_tools" ]; then
-            mkdir -p "$output_kernel_build_tools"
-        fi
-        local magiskboot_path="lib/x86_64/libmagiskboot.so"
-        unzip -o "$magiskzip" "$magiskboot_path" -d "$output_kernel_build_tools"
-        mv "$output_kernel_build_tools/$magiskboot_path" "$magiskboot"
-        rm -rf "$output_kernel_build_tools/lib"
-        chmod +x "$magiskboot"
-    fi
-    # Set PATCHVBMETAFLAG to enable patching of vbmeta header flags in boot image
-    export PATCHVBMETAFLAG=true
-    # unpack the boot.img
-    cd "$output_kernel_build"
-    echo "[+] Unpacking boot.img..."
-    "$magiskboot" cleanup
-    "$magiskboot" unpack "$stock_boot_img"
-    # copy the new kernel to the boot.img
-    local new_kernel="$build_dir/kernel"
+    local new_kernel="$KERNEL_ROOT/out/arch/arm64/boot/Image"
+
     if [ ! -f "$new_kernel" ]; then
         echo "[-] Kernel not found. Skipping repack."
         return 0
     fi
-    echo "[-] Old kernel: $(file kernel)"
-    rm kernel
-    cp "$new_kernel" kernel
-    echo "[+] New kernel: $(file kernel)"
-    # repack the boot.img
-    echo "[+] Repacking boot.img..."
-    "$magiskboot" repack "$stock_boot_img" ../boot.img
-    cd -
-    echo "[+] Repacked boot.img: $(file $build_dir/boot.img)"
-    echo "[+] Repack: ./build/boot.img, you can flash it using odin."
-    echo "[+] Repacked boot.img successfully."
+
+    source "repack.sh"
+
+    # Create build directory and navigate to it
+    local build_dir="${KERNEL_ROOT}/build"
+    mkdir -p "$build_dir"
+    cd "$build_dir"
+
+    generate_info "$KERNEL_ROOT"
+
+    # AnyKernel
+    echo "[+] Creating AnyKernel package..."
+    pack_anykernel "$new_kernel" "$DEVICE_NAME_LIST"
+
+    # boot.img
+    if [ ! -f "$stock_boot_img" ]; then
+        echo "[-] boot.img not found. Skipping repack."
+        return 0
+    fi
+    echo "[+] Repacking boot.img using repack.sh..."
+    repack_stock_img "$stock_boot_img" "$new_kernel"
+
+    cd "$KERNEL_ROOT"
+    echo "[+] Repack completed. Output files in ./build/dist/"
 }
 
 main() {
@@ -188,7 +166,7 @@ main() {
     prepare_toolchain
     prepare_config
     build_kernel
-    repack_stock_img
+    repack
     echo -e "\n[INFO]: BUILD FINISHED..!"
 }
 main

@@ -3,7 +3,9 @@ official_source="SM-T870_EUR_13_Opensource.zip" # change it with you downloaded 
 build_root=$(pwd)
 kernel_root="$build_root/kernel_source"
 toolchains_root="$build_root/toolchains"
-kernel_su_next_branch="v1.0.8"
+SUSFS_REPO="https://github.com/ShirkNeko/susfs4ksu.git"
+KERNELSU_INSTALL_SCRIPT="https://raw.githubusercontent.com/pershoot/KernelSU-Next/next-susfs/kernel/setup.sh"
+kernel_su_next_branch="next-susfs"
 susfs_branch="kernel-4.19"
 container_name="sm8250-kernel-builder"
 
