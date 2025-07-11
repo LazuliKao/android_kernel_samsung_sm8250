@@ -139,6 +139,22 @@ function add_susfs() {
     fi
 }
 
+function add_susfs_fix() {
+    # replace:
+    # current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC
+    # with:
+    # susfs_is_current_non_root_user_app_proc()
+    # file:
+    # fs/dcache.c
+    echo "[+] Adding SuSFS fix for non-root user app proc..."
+    if ! grep -q "susfs_is_current_non_root_user_app_proc()" "$kernel_root/fs/dcache.c"; then
+        sed -i 's/current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC/susfs_is_current_non_root_user_app_proc()/g' "$kernel_root/fs/dcache.c"
+        echo "[+] SuSFS non-root user app proc fix added to fs/dcache.c"
+    else
+        echo "[+] SuSFS non-root user app proc fix already exists in fs/dcache.c"
+    fi
+}
+
 function print_usage() {
     echo "Usage: $0 [container|clean|prepare]"
     echo "  container: Build the Docker container for kernel compilation"
@@ -166,6 +182,7 @@ function main() {
     add_kernelsu_next
     fix_stpcpy
     add_susfs
+    add_susfs_fix
     fix_kernel_su_next_susfs
     apply_kernelsu_manual_hooks_for_next
     apply_wild_kernels_config
