@@ -126,6 +126,7 @@ fix_kernel_su_next_susfs() {
 }
 
 apply_kernelsu_manual_hooks_for_next() {
+    prepare_wild_patches
     echo "[+] Applying syscall hooks..."
     cd "$kernel_root"
     if ! _apply_patch "wild_kernels/next/syscall_hooks.patch"; then
@@ -190,6 +191,7 @@ apply_wild_kernels_fix_for_next() {
         "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_apk_sign.c.patch"
         "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_core_hook.c.patch"
         "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_selinux.c.patch"
+        "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_rules.c.patch"
         "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_ksud.c.patch"
         "wild_kernels/next/manager.patch"
         "wild_kernels/69_hide_stuff.patch"
