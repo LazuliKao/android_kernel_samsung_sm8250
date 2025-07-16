@@ -6,6 +6,7 @@ toolchains_root="$build_root/toolchains"
 SUSFS_REPO="https://github.com/ShirkNeko/susfs4ksu.git"
 KERNELSU_INSTALL_SCRIPT="https://raw.githubusercontent.com/pershoot/KernelSU-Next/next-susfs/kernel/setup.sh"
 kernel_su_next_branch="next-susfs"
+# kernel_su_next_branch="v1.0.9"
 susfs_branch="kernel-4.19"
 container_name="sm8250-kernel-builder"
 
@@ -13,7 +14,7 @@ kernel_build_script="scripts/build_kernel_4.19.sh"
 support_kernel="4.19" # only support 4.19 kernel
 kernel_source_link="https://opensource.samsung.com/uploadSearch?searchValue=T870"
 
-custom_config_name="custom_defconfig"
+custom_config_name="vendor/gts7lwifi_eur_open_defconfig"
 custom_config_file="$kernel_root/arch/arm64/configs/$custom_config_name"
 
 # Load utility functions
@@ -58,11 +59,6 @@ function fix_makefile() {
     #     sed -i 's/-Werror=implicit-function-declaration/-Wno-error=implicit-function-declaration/' "$kernel_root/Makefile"
     #     echo "[+] Disabled -Werror=implicit-function-declaration in Makefile"
     # fi
-}
-
-function fix_jopp_springboard_blr_x17_error() {
-    #  init/cfp.S
-    _set_config CONFIG_CFP_ROPP n
 }
 
 function fix_path_umount() {
@@ -154,13 +150,25 @@ function add_susfs_fix() {
         echo "[+] SuSFS non-root user app proc fix already exists in fs/dcache.c"
     fi
 }
-
+function add_extra_config() {
+    echo "[+] Adding extra kernel configurations..."
+    _set_or_add_config CONFIG_CC_WERROR n
+    _set_or_add_config CONFIG_DEBUG_SECTION_MISMATCH y
+    _set_or_add_config CONFIG_BUILD_ARM64_DT_OVERLAY y
+    _set_or_add_config CONFIG_BUILD_ARM64_UNCOMPRESSED_KERNEL n
+}
 function print_usage() {
     echo "Usage: $0 [container|clean|prepare]"
     echo "  container: Build the Docker container for kernel compilation"
     echo "  clean: Clean the kernel source directory"
     echo "  prepare: Prepare the kernel source directory"
     echo "  (default): Run the main build process"
+}
+function fix_samsung_kernel_4_1x_ksu(){
+    # * Refer to tiann/KernelSU#436 , we will got "save_allow_list creat file failed: -126" on Samsung Kernel 4.14/4.19, merge upstream is not easy for Samsung devices, so we give KernelSU a patch to let samsung devices work in traditional mode.
+    local search_dir="drivers/kernelsu"
+    # Find all in the files and replace.
+    grep -rl 'if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)' "$search_dir" | xargs sed -i 's/if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)/if 1/g'
 }
 
 function main() {
@@ -171,30 +179,43 @@ function main() {
         echo "[-] Environment validation failed"
         exit 1
     fi
-
+    local use_lineageos_source=true
     download_toolchains
     clean
-    prepare_source false
+    if [ "$use_lineageos_source" = true ]; then
+        # prepare_source_git "https://github.com/LineageOS/android_kernel_samsung_sm8250.git" "lineage-22.2"
+        prepare_source_git "https://github.com/ShionKanagawa/android_kernel_samsung_gts7l.git" "Inazuma"
+        pushd "$kernel_root" || exit 1
+        git submodule update --init --recursive
+        popd || exit 1
+    else
+        prepare_source false
+    fi
     extract_kernel_config
 
     show_config_summary
+    [ "$use_lineageos_source" = false ] && fix_stpcpy
+    add_extra_config
 
-    add_kernelsu_next
-    fix_stpcpy
-    add_susfs
-    add_susfs_fix
-    fix_kernel_su_next_susfs
-    apply_kernelsu_manual_hooks_for_next
-    apply_wild_kernels_config
-    apply_wild_kernels_fix_for_next
-    fix_driver_check
+    # add_kernelsu_next
+    [ "$use_lineageos_source" = false ] && fix_samsung_kernel_4_1x_ksu
+    # fix_path_umount
+
+    # add_susfs
+    # add_susfs_fix
+    # fix_kernel_su_next_susfs
+
+    # apply_kernelsu_manual_hooks_for_next
+    # apply_wild_kernels_config
+    # apply_wild_kernels_fix_for_next
+
+    fix_driver_checks
+    fix_callsyms_for_lkm
+    add_kprobes
     fix_samsung_securities
     fix_makefile
-    fix_jopp_springboard_blr_x17_error
-    fix_path_umount
     add_build_script
-    init_git_repo
-    fix_callsyms_for_lkm
+    [ "$use_lineageos_source" = false ] && init_git_repo
 
     echo "[+] All done. You can now build the kernel."
     echo "[+] Please 'cd $kernel_root'"

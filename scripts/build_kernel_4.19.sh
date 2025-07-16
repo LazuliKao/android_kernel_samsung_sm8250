@@ -22,15 +22,15 @@ function add_secgetspf() {
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
-        return 1;
+        return 0;
     }
     // Simulate Samsung's feature detection based on feature name
     if (strstr(argv[1], "WLAN_SUPPORT_MIMO") != NULL) {
         printf("FALSE\n");
     } else if (strstr(argv[1], "BIOAUTH_CONFIG_FINGERPRINT_TZ") != NULL) {
-        printf("true\n");
+        printf("false\n");
     } else if (strstr(argv[1], "COMMON_CONFIG_SEP_VERSION") != NULL) {
-        printf("1.0\n");
+        printf("0.0\n");
     } else {
         printf("\n");
     }
@@ -92,7 +92,6 @@ CC=${BUILD_CC} \
 CLANG_TRIPLE=aarch64-linux-gnu- \
 LOCALVERSION=${LOCALVERSION} \
 LTO=${LTO} \
-CONFIG_DEBUG_SECTION_MISMATCH=y \
 "
     # Make default configuration.
     make ${BUILD_OPTIONS} $TARGET_DEFCONFIG
@@ -101,14 +100,25 @@ CONFIG_DEBUG_SECTION_MISMATCH=y \
     # make ${BUILD_OPTIONS} menuconfig
 
     # Set the kernel configuration, Disable unnecessary features
-    ./scripts/config --file out/.config \
-        -d UH \
-        -d RKP \
-        -d KDP \
-        -d SECURITY_DEFEX \
-        -d INTEGRITY \
-        -d FIVE \
-        -d TRIM_UNUSED_KSYMS
+    # ./scripts/config --file out/.config \
+    #     -d UH \
+    #     -d RKP \
+    #     -d KDP \
+    #     -d SECURITY_DEFEX \
+    #     -d INTEGRITY \
+    #     -d FIVE \
+    #     -d TRIM_UNUSED_KSYMS \
+    #     -d PROCA \
+    #     -d PROCA_GKI_10 \
+    #     -d PROCA_S_OS \
+    #     -d PROCA_CERTIFICATES_XATTR \
+    #     -d PROCA_CERT_ENG \
+    #     -d PROCA_CERT_USER \
+    #     -d GAF_V6 \
+    #     -d FIVE \
+    #     -d FIVE_CERT_USER \
+    #     -d FIVE_DEFAULT_HASH
+
 
     # use thin lto
     if [ "$LTO" = "thin" ]; then

@@ -51,6 +51,38 @@ prepare_source() {
     fi
 }
 
+prepare_source_git(){
+    local kernel_source_git="$1"
+    local kernel_source_branch="$2"
+    if [ -z "$kernel_source_git" ] || [ -z "$kernel_source_branch" ]; then
+        echo "[-] Kernel source git URL or branch is not set."
+        exit 1
+    fi
+    if [ ! -d "$kernel_root" ]; then
+        echo "[+] Cloning kernel source from git..."
+        git clone --depth 1 -b "$kernel_source_branch" "$kernel_source_git" "$kernel_root"
+        if [ $? -ne 0 ]; then
+            echo "[-] Failed to clone kernel source from git."
+            exit 1
+        fi
+        cd "$kernel_root"
+        echo "[+] Kernel source cloned successfully."
+    else
+        echo "[+] Kernel source already exists, skipping clone."
+    fi
+    echo "[+] Checking kernel version..."
+    local kernel_version=$(get_kernel_version)
+    local kernel_kmi_version=$(echo $kernel_version | cut -d '.' -f 1-2)
+    echo "[+] Kernel version: $kernel_version, KMI version: $kernel_kmi_version"
+    if [ "$kernel_kmi_version" != "$support_kernel" ]; then
+        echo "Kernel version is not $support_kernel. Please check the official source code."
+        exit 1
+    fi
+    echo "[+] Setting up permissions..."
+    chmod 777 -R "$kernel_root"
+    echo "[+] Kernel source code prepared successfully."
+}
+
 extract_kernel_config() {
     cd "$build_root"
     local tools_dir="$build_root/tools"
@@ -105,6 +137,7 @@ extract_kernel_config() {
     cd "$kernel_root"
     echo "[+] Copy stock_config to kernel source..."
     tail -n +2 "$build_root/boot.img.build.conf" >"$kernel_root/arch/arm64/configs/stock_defconfig"
+    
     echo "[+] Fix: 'There's an internal problem with your device.' issue."
     # $(obj)/config_data.gz: .*
     # $(obj)/config_data.gz: arch/arm64/configs/stock_defconfig FORCE
@@ -230,6 +263,11 @@ fix_driver_check() {
     echo "[+] Driver fix patch applied successfully."
 }
 
+add_kprobes() {
+    _set_or_add_config CONFIG_KPROBES y
+    _set_or_add_config CONFIG_HAVE_KPROBES y
+    _set_or_add_config CONFIG_KPROBE_EVENTS y
+}
 fix_samsung_securities() {
     # Disable Samsung Securities
     _set_or_add_config CONFIG_UH n
@@ -241,13 +279,23 @@ fix_samsung_securities() {
     _set_or_add_config CONFIG_SECURITY_DEFEX n
     _set_or_add_config CONFIG_PROCA n
     _set_or_add_config CONFIG_FIVE n
+
+    _set_or_add_config CONFIG_SECURITY_DSMS n
+    _set_or_add_config CONFIG_KSM y
+
+    _set_or_add_config CONFIG_BUILD_ARM64_KERNEL_COMPRESSION_GZIP y
+    _set_or_add_config CONFIG_BUILD_ARM64_UNCOMPRESSED_KERNEL n
+
+    _set_or_add_config CONFIG_CFP n
+    _set_or_add_config CONFIG_CFP_JOPP n
+    _set_or_add_config CONFIG_CFP_ROPP n
 }
 
 add_build_script() {
     echo "[+] Adding build script..."
     cp "$build_root/$kernel_build_script" "$kernel_root/build.sh"
     cp "$build_root/scripts/utils/repack.sh" "$kernel_root/repack.sh"
-    sed -i "s/gki_defconfig/$custom_config_name/" "$kernel_root/build.sh"
+    sed -i "s#gki_defconfig#$custom_config_name#" "$kernel_root/build.sh"
     chmod +x "$kernel_root/build.sh"
     chmod +x "$kernel_root/repack.sh"
     echo "[+] Build script added successfully."
