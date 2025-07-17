@@ -138,10 +138,14 @@ extract_kernel_config() {
     echo "[+] Copy stock_config to kernel source..."
     tail -n +2 "$build_root/boot.img.build.conf" >"$kernel_root/arch/arm64/configs/stock_defconfig"
     
-    # echo "[+] Fix: 'There's an internal problem with your device.' issue."
-    # # $(obj)/config_data.gz: .*
-    # # $(obj)/config_data.gz: arch/arm64/configs/stock_defconfig FORCE
-    # sed -i 's/$(obj)\/config_data\.gz: .*/$(obj)\/config_data\.gz: arch\/arm64\/configs\/stock_defconfig FORCE/' "$kernel_root/kernel/Makefile"
+    local with_patch="$1"
+    if [ "$with_patch" = true ]; then
+        echo "[+] Fix: 'There's an internal problem with your device.' issue."
+        # $(obj)/config_data.gz: .*
+        # $(obj)/config_data.gz: arch/arm64/configs/stock_defconfig FORCE
+        sed -i 's/$(obj)\/config_data\.gz: .*/$(obj)\/config_data\.gz: arch\/arm64\/configs\/stock_defconfig FORCE/' "$kernel_root/kernel/Makefile"
+        echo "[+] Fix applied successfully."
+    fi
 }
 
 add_kernelsu_next() {
@@ -223,9 +227,10 @@ apply_wild_kernels_fix_for_next() {
     local patches=(
         "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_apk_sign.c.patch"
         "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_core_hook.c.patch"
-        "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_selinux.c.patch"
-        "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_rules.c.patch"
         "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_ksud.c.patch"
+        "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_rules.c.patch"
+        "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_selinux.c.patch"
+        "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_sucompat.c.patch"
         "wild_kernels/next/manager.patch"
         "wild_kernels/69_hide_stuff.patch"
     )
@@ -394,6 +399,7 @@ add_susfs_prepare() {
 
 fix_callsyms_for_lkm() {
     echo "[+] Adding CONFIG_KALLSYMS for LKM..."
+    _set_or_add_config CONFIG_KPM y
     _set_or_add_config CONFIG_KALLSYMS y
     _set_or_add_config CONFIG_KALLSYMS_ALL y
 }

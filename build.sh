@@ -3,10 +3,12 @@ official_source="SM-T870_EUR_13_Opensource.zip" # change it with you downloaded 
 build_root=$(pwd)
 kernel_root="$build_root/kernel_source"
 toolchains_root="$build_root/toolchains"
-# SUSFS_REPO="https://github.com/ShirkNeko/susfs4ksu.git"
+SUSFS_REPO="https://github.com/ShirkNeko/susfs4ksu.git"
+KERNELSU_INSTALL_SCRIPT="https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh"
+kernel_su_next_branch="susfs-main"
+# kernel_su_next_branch="v1.0.9"
 # KERNELSU_INSTALL_SCRIPT="https://raw.githubusercontent.com/pershoot/KernelSU-Next/next-susfs/kernel/setup.sh"
 # kernel_su_next_branch="next-susfs"
-kernel_su_next_branch="v1.0.9"
 susfs_branch="kernel-4.19"
 container_name="sm8250-kernel-builder"
 
@@ -120,7 +122,8 @@ function add_susfs() {
     add_susfs_prepare
     echo "[+] Applying SuSFS patches..."
     cd "$kernel_root"
-    local patch_result=$(patch -p1 -l --forward --fuzz=3 <50_add_susfs_in_$susfs_branch.patch 2>&1)
+    exit 2
+    local patch_result=$(patch -p1 -l <50_add_susfs_in_$susfs_branch.patch 2>&1)
     if [ $? -ne 0 ]; then
         echo "$patch_result"
         echo "[-] Failed to apply SuSFS patches."
@@ -161,17 +164,14 @@ function add_extra_config() {
     _set_or_add_config CONFIG_DEBUG_SECTION_MISMATCH y
     _set_or_add_config CONFIG_BUILD_ARM64_DT_OVERLAY y
     _set_or_add_config CONFIG_BUILD_ARM64_UNCOMPRESSED_KERNEL n
-    # CONFIG_ECRYPT_FS=y
-    # CONFIG_ECRYPT_FS_MESSAGING=y
-    # CONFIG_WTL_ENCRYPTION_FILTER=y
-    # CONFIG_ECRYPTFS_FEK_INTEGRITY=y
+    
     _set_or_add_config CONFIG_GAF_V6 n
+    
+    # _set_or_add_config CONFIG_FSCRYPT_SDP n
     _set_or_add_config CONFIG_ECRYPT_FS n
     _set_or_add_config CONFIG_ECRYPT_FS_MESSAGING n
     _set_or_add_config CONFIG_WTL_ENCRYPTION_FILTER n
     _set_or_add_config CONFIG_ECRYPTFS_FEK_INTEGRITY n
-
-
 }
 function print_usage() {
     echo "Usage: $0 [container|clean|prepare]"
@@ -211,15 +211,15 @@ function main() {
     [ "$use_lineageos_source" = false ] && fix_stpcpy
     add_extra_config
 
-    # ksu
+    # # ksu
     add_kernelsu_next
     [ "$use_lineageos_source" = false ] && fix_samsung_kernel_4_1x_ksu
-    fix_path_umount
+    # fix_path_umount
     apply_kernelsu_manual_hooks_for_next
 
-    # # susfs
-    # add_susfs
-    # add_susfs_fix
+    # susfs
+    add_susfs
+    add_susfs_fix
     # fix_kernel_su_next_susfs
 
     # # wildkernels config
