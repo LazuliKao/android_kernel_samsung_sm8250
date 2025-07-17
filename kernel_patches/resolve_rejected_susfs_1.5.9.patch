@@ -1,0 +1,133 @@
+diff --color -Naur a/fs/namei.c b/fs/namei.c
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -40,6 +40,9 @@
+ #include <linux/init_task.h>
+ #include <linux/uaccess.h>
+ #include <linux/build_bug.h>
++#if defined(CONFIG_KSU_SUSFS_SUS_PATH) || defined(CONFIG_KSU_SUSFS_OPEN_REDIRECT)
++#include <linux/susfs_def.h>
++#endif
+ 
+ #ifdef CONFIG_FSCRYPT_SDP
+ #include <linux/fscrypto_sdp_name.h>
+@@ -48,6 +51,15 @@
+ #include "internal.h"
+ #include "mount.h"
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++extern bool susfs_is_sus_android_data_d_name_found(const char *d_name);
++extern bool susfs_is_sus_sdcard_d_name_found(const char *d_name);
++extern bool susfs_is_inode_sus_path(struct inode *inode);
++extern bool susfs_is_base_dentry_android_data_dir(struct dentry* base);
++extern bool susfs_is_base_dentry_sdcard_dir(struct dentry* base);
++extern const struct qstr susfs_fake_qstr_name;
++#endif
++
+ #define CREATE_TRACE_POINTS
+ #include <trace/events/namei.h>
+ 
+diff --color -Naur a/fs/namespace.c b/fs/namespace.c
+--- a/fs/namespace.c
++++ b/fs/namespace.c
+@@ -27,12 +27,37 @@
+ #include <linux/task_work.h>
+ #include <linux/sched/task.h>
+ #include <linux/fslog.h>
++#if defined(CONFIG_KSU_SUSFS_SUS_MOUNT) || defined(CONFIG_KSU_SUSFS_TRY_UMOUNT)
++#include <linux/susfs_def.h>
++#endif
+ #ifdef CONFIG_KDP_NS
+ #include <linux/slub_def.h>
+ #include <linux/kdp.h>
+ #endif
+ #include "pnode.h"
+ #include "internal.h"
++#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
++extern bool susfs_is_current_ksu_domain(void);
++extern bool susfs_is_current_zygote_domain(void);
++
++static DEFINE_IDA(susfs_mnt_id_ida);
++static DEFINE_IDA(susfs_mnt_group_ida);
++
++#define CL_COPY_MNT_NS BIT(25) /* used by copy_mnt_ns() */
++#endif
++
++#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
++extern void susfs_auto_add_sus_ksu_default_mount(const char __user *to_pathname);
++bool susfs_is_auto_add_sus_ksu_default_mount_enabled = true;
++#endif
++#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT
++extern int susfs_auto_add_sus_bind_mount(const char *pathname, struct path *path_target);
++bool susfs_is_auto_add_sus_bind_mount_enabled = true;
++#endif
++#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT
++extern void susfs_auto_add_try_umount_for_bind_mount(struct path *path);
++bool susfs_is_auto_add_try_umount_for_bind_mount_enabled = true;
++#endif
+ 
+ #ifdef CONFIG_KDP_NS
+ #define KDP_MOUNT_SYSTEM "/system"
+@@ -3731,6 +3756,10 @@
+ 	copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;
+ 	if (user_ns != ns->user_ns)
+ 		copy_flags |= CL_SHARED_TO_SLAVE | CL_UNPRIVILEGED;
++#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
++	// Always let clone_mnt() in copy_tree() know it is from copy_mnt_ns()
++	copy_flags |= CL_COPY_MNT_NS;
++#endif
+ #ifdef CONFIG_KDP_NS
+ 	new = copy_tree(old, old->mnt->mnt_root, copy_flags);
+ #else
+diff --color -Naur a/fs/notify/fdinfo.c b/fs/notify/fdinfo.c
+--- a/fs/notify/fdinfo.c
++++ b/fs/notify/fdinfo.c
+@@ -108,6 +108,36 @@
+ 		 * used only internally to the kernel.
+ 		 */
+ 		u32 mask = mark->mask & IN_ALL_EVENTS;
++#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
++		if (likely(susfs_is_current_non_root_user_app_proc()) &&
++				unlikely(inode->i_state & INODE_STATE_SUS_KSTAT)) {
++			struct path path;
++			char *pathname = kmalloc(PAGE_SIZE, GFP_KERNEL);
++			char *dpath;
++			if (!pathname) {
++				goto out_seq_printf;
++			}
++			dpath = d_path(&file->f_path, pathname, PAGE_SIZE);
++			if (!dpath) {
++				goto out_free_pathname;
++			}
++			if (kern_path(dpath, 0, &path)) {
++				goto out_free_pathname;
++			}
++			seq_printf(m, "inotify wd:%x ino:%lx sdev:%x mask:%x ignored_mask:0 ",
++			   inode_mark->wd, path.dentry->d_inode->i_ino, path.dentry->d_inode->i_sb->s_dev,
++			   mask);
++			show_mark_fhandle(m, path.dentry->d_inode);
++			seq_putc(m, '\n');
++			iput(inode);
++			path_put(&path);
++			kfree(pathname);
++			return;
++out_free_pathname:
++			kfree(pathname);
++		}
++out_seq_printf:
++#endif
+ 		seq_printf(m, "inotify wd:%x ino:%lx sdev:%x mask:%x ignored_mask:%x ",
+ 			   inode_mark->wd, inode->i_ino, inode->i_sb->s_dev,
+ 			   mask, mark->ignored_mask);
+diff --color -ruN include/linux/mount.h include/linux/mount.h
+--- a/include/linux/mount.h
++++ b/include/linux/mount.h
+@@ -71,6 +71,9 @@
+ 	struct mount *bp_mount;	/* pointer to mount*/
+ #endif
+ 	int mnt_flags;
++#if defined(CONFIG_KSU_SUSFS) && !defined(ANDROID_KABI_RESERVE)
++	u64 susfs_mnt_id_backup;
++#endif
+ 	void *data;
+ } __randomize_layout;

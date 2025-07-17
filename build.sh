@@ -3,12 +3,21 @@ official_source="SM-T870_EUR_13_Opensource.zip" # change it with you downloaded 
 build_root=$(pwd)
 kernel_root="$build_root/kernel_source"
 toolchains_root="$build_root/toolchains"
-SUSFS_REPO="https://github.com/ShirkNeko/susfs4ksu.git"
-KERNELSU_INSTALL_SCRIPT="https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh"
-kernel_su_next_branch="susfs-main"
+
+# == SukiSU-Ultra + SuSFS ==
+add_susfs=true
+ksu_install_script="https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh"
+kernel_su_next_branch="susfs-1.5.7"
+susfs_resolve_patch="resolve_rejected_susfs_1.5.5.patch"
+
+# == KernelSU-Next ==
 # kernel_su_next_branch="v1.0.9"
-# KERNELSU_INSTALL_SCRIPT="https://raw.githubusercontent.com/pershoot/KernelSU-Next/next-susfs/kernel/setup.sh"
+
+# == KernelSU-Next with SuSFS == (broken)
+# susfs_repo="https://github.com/ShirkNeko/susfs4ksu.git"
+# ksu_install_script="https://raw.githubusercontent.com/pershoot/KernelSU-Next/next-susfs/kernel/setup.sh"
 # kernel_su_next_branch="next-susfs"
+
 susfs_branch="kernel-4.19"
 container_name="sm8250-kernel-builder"
 
@@ -122,7 +131,6 @@ function add_susfs() {
     add_susfs_prepare
     echo "[+] Applying SuSFS patches..."
     cd "$kernel_root"
-    exit 2
     local patch_result=$(patch -p1 -l <50_add_susfs_in_$susfs_branch.patch 2>&1)
     if [ $? -ne 0 ]; then
         echo "$patch_result"
@@ -134,7 +142,7 @@ function add_susfs() {
         echo "$patch_result" | grep -q ".rej"
     fi
     echo "[+] SuSFS added successfully."
-    _apply_patch_strict "51_solve_rejected_susfs.patch"
+    _apply_patch_strict "$susfs_resolve_patch"
     if [ $? -ne 0 ]; then
         echo "[-] Failed to apply SuSFS fix patch."
         exit 1
@@ -217,10 +225,12 @@ function main() {
     # fix_path_umount
     apply_kernelsu_manual_hooks_for_next
 
-    # susfs
-    add_susfs
-    add_susfs_fix
-    # fix_kernel_su_next_susfs
+    if [ "$add_susfs" = true ]; then
+        # susfs
+        add_susfs
+        # add_susfs_fix
+        # fix_kernel_su_next_susfs
+    fi
 
     # # wildkernels config
     # apply_wild_kernels_config

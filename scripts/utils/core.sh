@@ -1,5 +1,5 @@
-KERNELSU_INSTALL_SCRIPT="${KERNELSU_INSTALL_SCRIPT:-https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh}"
-SUSFS_REPO="${SUSFS_REPO:-https://gitlab.com/simonpunk/susfs4ksu.git}"
+KERNELSU_INSTALL_SCRIPT="${ksu_install_script:-https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh}"
+SUSFS_REPO="${susfs_repo:-https://gitlab.com/simonpunk/susfs4ksu.git}"
 export GIT_ADVICE_DETACHED_HEAD=false
 
 clean() {
