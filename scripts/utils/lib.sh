@@ -4,6 +4,7 @@
 
 # Check if custom_config_file is set
 check_config_file() {
+    local custom_config_file="$kernel_root/arch/arm64/configs/$custom_config_name"
     if [ -z "$custom_config_file" ]; then
         echo "[-] Error: custom_config_file is not set"
         return 1
@@ -17,6 +18,7 @@ check_config_file() {
 
 # Set a configuration value
 _set_config() {
+    local custom_config_file="$kernel_root/arch/arm64/configs/$custom_config_name"
     local key=$1
     local value=$2
 
@@ -31,6 +33,7 @@ _set_config() {
 
 # Set a configuration value with quotes
 _set_config_quote() {
+    local custom_config_file="$kernel_root/arch/arm64/configs/$custom_config_name"
     local key=$1
     local value=$2
 
@@ -45,6 +48,7 @@ _set_config_quote() {
 
 # Get a configuration value
 _get_config() {
+    local custom_config_file="$kernel_root/arch/arm64/configs/$custom_config_name"
     local key=$1
 
     if ! check_config_file; then
@@ -56,6 +60,7 @@ _get_config() {
 
 # Set or add a configuration value
 _set_or_add_config() {
+    local custom_config_file="$kernel_root/arch/arm64/configs/$custom_config_name"
     local key=$1
     local value=$2
 
@@ -133,18 +138,20 @@ _apply_patch_strict() {
 
 # Get kernel version from Makefile
 get_kernel_version() {
-    if [ -z "$kernel_root" ]; then
-        echo "[-] Error: kernel_root is not set"
+    local root_path="${1:-$kernel_root}"
+
+    if [ -z "$root_path" ]; then
+        echo "[-] Error: kernel root path is not set"
         return 1
     fi
 
-    if [ ! -f "$kernel_root/Makefile" ]; then
-        echo "[-] Error: Makefile not found in $kernel_root"
+    if [ ! -f "$root_path/Makefile" ]; then
+        echo "[-] Error: Makefile not found in $root_path"
         return 1
     fi
 
     # Get the kernel version from the Makefile
-    local version=$(grep -E '^VERSION =|^PATCHLEVEL =|^SUBLEVEL =' "$kernel_root/Makefile" | awk '{print $3}' | tr '\n' '.')
+    local version=$(grep -E '^VERSION =|^PATCHLEVEL =|^SUBLEVEL =' "$root_path/Makefile" | awk '{print $3}' | tr '\n' '.')
     # Remove the trailing dot
     version=${version%.}
     echo "$version"
@@ -152,6 +159,7 @@ get_kernel_version() {
 
 # Validate required environment variables
 validate_environment() {
+    local custom_config_file="$kernel_root/arch/arm64/configs/$custom_config_name"
     local required_vars=("build_root" "kernel_root" "custom_config_file")
     local missing_vars=()
 
@@ -172,6 +180,7 @@ validate_environment() {
 
 # Display configuration summary
 show_config_summary() {
+    local custom_config_file="$kernel_root/arch/arm64/configs/$custom_config_name"
     if ! check_config_file; then
         return 1
     fi

@@ -4,19 +4,19 @@ build_root=$(pwd)
 kernel_root="$build_root/kernel_source"
 toolchains_root="$build_root/toolchains"
 
-# == SukiSU-Ultra + SuSFS ==
-add_susfs=true
+# == SukiSU-Ultra + SuSFS == 
+ksu_add_susfs=true
 ksu_install_script="https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh"
-kernel_su_next_branch="susfs-1.5.7"
+ksu_branch="susfs-1.5.7"
 susfs_resolve_patch="resolve_rejected_susfs_1.5.5.patch"
 
 # == KernelSU-Next ==
-# kernel_su_next_branch="v1.0.9"
+# ksu_branch="v1.0.9"
 
 # == KernelSU-Next with SuSFS == (broken)
 # susfs_repo="https://github.com/ShirkNeko/susfs4ksu.git"
 # ksu_install_script="https://raw.githubusercontent.com/pershoot/KernelSU-Next/next-susfs/kernel/setup.sh"
-# kernel_su_next_branch="next-susfs"
+# ksu_branch="next-susfs"
 
 susfs_branch="kernel-4.19"
 container_name="sm8250-kernel-builder"
@@ -26,7 +26,6 @@ support_kernel="4.19" # only support 4.19 kernel
 kernel_source_link="https://opensource.samsung.com/uploadSearch?searchValue=T870"
 
 custom_config_name="vendor/gts7lwifi_eur_open_defconfig"
-custom_config_file="$kernel_root/arch/arm64/configs/$custom_config_name"
 
 use_lineageos_source=false
 linageos_source_repo="https://github.com/LineageOS/android_kernel_samsung_sm8250.git"
@@ -221,11 +220,11 @@ function main() {
 
     # # ksu
     add_kernelsu_next
-    [ "$use_lineageos_source" = false ] && fix_samsung_kernel_4_1x_ksu
+    # [ "$use_lineageos_source" = false ] && fix_samsung_kernel_4_1x_ksu
     # fix_path_umount
     apply_kernelsu_manual_hooks_for_next
 
-    if [ "$add_susfs" = true ]; then
+    if [ "$ksu_add_susfs" = true ]; then
         # susfs
         add_susfs
         # add_susfs_fix
