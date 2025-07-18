@@ -291,7 +291,7 @@ extract_kernel_config() {
     fi
 }
 
-add_kernelsu_next() {
+add_kernelsu() {
     echo "[+] Adding KernelSU Next..."
     cd "$kernel_root"
     curl -LSs "$KERNELSU_INSTALL_SCRIPT" | bash -s "$ksu_branch"
@@ -305,7 +305,7 @@ fix_kernel_su_next_susfs() {
     echo "[+] KernelSU Next with SuSFS fix applied successfully."
 }
 
-apply_kernelsu_manual_hooks_for_next() {
+apply_kernelsu_manual_hooks() {
     prepare_wild_patches
     echo "[+] Applying syscall hooks..."
     cd "$kernel_root"

@@ -10,12 +10,14 @@ cache_root="${CACHE_ROOT:-$build_root/cache}"
 
 # == SukiSU-Ultra + SuSFS == 
 ksu_add_susfs=true
+ksu_platform="sukisu-ultra"
 ksu_install_script="https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh"
 ksu_branch="susfs-1.5.7"
 susfs_resolve_patch="resolve_rejected_susfs_1.5.5.patch"
 
 # == KernelSU-Next ==
 # ksu_branch="v1.0.9"
+# ksu_platform="ksu-next"
 
 # == KernelSU-Next with SuSFS == (broken)
 # susfs_repo="https://github.com/ShirkNeko/susfs4ksu.git"
@@ -238,23 +240,19 @@ function main() {
     [ "$use_lineageos_source" = false ] && fix_stpcpy
     add_extra_config
 
-    # # ksu
-    add_kernelsu_next
-    # [ "$use_lineageos_source" = false ] && fix_samsung_kernel_4_1x_ksu
-    # fix_path_umount
-    apply_kernelsu_manual_hooks_for_next
+    add_kernelsu
+    [ "$use_lineageos_source" = false ] && fix_samsung_kernel_4_1x_ksu
+    apply_kernelsu_manual_hooks
+    [ "$ksu_platform" = "ksu-next" ] && fix_path_umount
 
     if [ "$ksu_add_susfs" = true ]; then
-        # susfs
         add_susfs
+        [ "$ksu_platform" = "ksu-next" ] && fix_kernel_su_next_susfs
         # add_susfs_fix
-        # fix_kernel_su_next_susfs
     fi
 
-    # # wildkernels config
-    # apply_wild_kernels_config
-    # apply_wild_kernels_fix_for_next
-
+    apply_wild_kernels_config
+    [ "$ksu_platform" = "ksu-next" ] && apply_wild_kernels_fix_for_next
     # basic fixes
     # fix_driver_checks
     # fix_callsyms_for_lkm
