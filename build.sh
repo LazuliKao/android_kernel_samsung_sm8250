@@ -2,7 +2,11 @@
 official_source="SM-T870_EUR_13_Opensource.zip" # change it with you downloaded file
 build_root=$(pwd)
 kernel_root="$build_root/kernel_source"
-toolchains_root="$build_root/toolchains"
+
+# Cache directory configuration - can be overridden by environment variable
+# 缓存目录配置 - 可通过环境变量覆盖
+cache_root="${CACHE_ROOT:-$build_root/cache}"
+
 
 # == SukiSU-Ultra + SuSFS == 
 ksu_add_susfs=true
@@ -32,23 +36,12 @@ linageos_source_repo="https://github.com/LineageOS/android_kernel_samsung_sm8250
 linageos_source_branch="lineage-22.2"
 
 
-# Load utility functions
-lib_file="$build_root/scripts/utils/lib.sh"
-if [ -f "$lib_file" ]; then
-    source "$lib_file"
-else
-    echo "[-] Error: Library file not found: $lib_file"
-    echo "[-] Please ensure lib.sh exists in the build directory"
-    exit 1
-fi
-core_file="$build_root/scripts/utils/core.sh"
-if [ -f "$core_file" ]; then
-    source "$core_file"
-else
-    echo "[-] Error: Core file not found: $core_file"
-    echo "[-] Please ensure lib.sh exists in the build directory"
-    exit 1
-fi
+source "$build_root/scripts/utils/lib.sh"
+source "$build_root/scripts/utils/core.sh"
+config_hash=$(generate_config_hash "${ksu_branch}" "${susfs_branch}")
+cache_config_dir="$cache_root/config_${config_hash}"
+# Toolchains are shared across all configurations
+toolchains_root="$cache_root/toolchains"
 
 function download_toolchains() {
     mkdir -p "$toolchains_root"
@@ -180,12 +173,35 @@ function add_extra_config() {
     _set_or_add_config CONFIG_WTL_ENCRYPTION_FILTER n
     _set_or_add_config CONFIG_ECRYPTFS_FEK_INTEGRITY n
 }
+function show_cache_info() {
+    echo "[+] Cache Directory Information:"
+    echo "    Root cache: $cache_root"
+    echo "    Configuration hash: $config_hash"
+    echo "    Config directory: $cache_config_dir"
+    echo "    Toolchains (shared): $toolchains_root"
+    echo "    Tools (config-specific): $cache_config_dir/tools"
+    echo "    SuSFS (config-specific): $cache_config_dir/susfs"
+    echo "    Wild Kernels (config-specific): $cache_config_dir/kernel_patches/wild_kernels"
+    echo ""
+}
+
 function print_usage() {
-    echo "Usage: $0 [container|clean|prepare]"
+    echo "Usage: $0 [container|clean|prepare|cache-info]"
     echo "  container: Build the Docker container for kernel compilation"
     echo "  clean: Clean the kernel source directory"
     echo "  prepare: Prepare the kernel source directory"
+    echo "  cache-info: Show cache directory information"
     echo "  (default): Run the main build process"
+    echo ""
+    echo "Environment Variables:"
+    echo "  CACHE_ROOT: Set custom cache directory for tools and toolchains"
+    echo "              Default: $build_root/cache"
+    echo "              Current: $cache_root"
+    echo ""
+    echo "Configuration-specific cache directory:"
+    echo "  Based on KSU branch: $ksu_branch"
+    echo "  Based on SuSFS branch: $susfs_branch"
+    echo "  Cache subdirectory: $cache_config_dir"
 }
 function fix_samsung_kernel_4_1x_ksu(){
     # * Refer to tiann/KernelSU#436 , we will got "save_allow_list creat file failed: -126" on Samsung Kernel 4.14/4.19, merge upstream is not easy for Samsung devices, so we give KernelSU a patch to let samsung devices work in traditional mode.
@@ -196,6 +212,10 @@ function fix_samsung_kernel_4_1x_ksu(){
 
 function main() {
     echo "[+] Starting kernel build process..."
+    echo "[+] Configuration: KSU=${ksu_branch}, SuSFS=${susfs_branch}"
+    echo "[+] Cache directory: $cache_root"
+    echo "[+] Shared toolchains: $toolchains_root"
+    echo "[+] Configuration-specific cache: $cache_config_dir"
 
     # Validate environment before proceeding
     if ! validate_environment; then
@@ -270,6 +290,10 @@ case "${1:-}" in
 "prepare")
     prepare_source
     echo "[+] Prepared kernel source directory."
+    exit 0
+    ;;
+"cache-info")
+    show_cache_info
     exit 0
     ;;
 "?" | "help" | "--help" | "-h")

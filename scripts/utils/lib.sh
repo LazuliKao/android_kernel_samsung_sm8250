@@ -78,11 +78,24 @@ _set_or_add_config() {
 
 # Apply a patch file
 _apply_patch() {
-    local patch_file="$build_root/kernel_patches/$1"
-
+    local patch_path="$1"
+    local patch_file=""
+    
     if [ -z "$build_root" ]; then
         echo "[-] Error: build_root is not set"
         return 1
+    fi
+
+    # Check if the path is absolute or relative
+    if [[ "$patch_path" == /* ]]; then
+        # Absolute path
+        patch_file="$patch_path"
+    elif [[ "$patch_path" == wild_kernels/* ]]; then
+        # Wild kernels patch - use cache directory
+        patch_file="$cache_config_dir/kernel_patches/$patch_path"
+    else
+        # Traditional relative path - use build_root
+        patch_file="$build_root/kernel_patches/$patch_path"
     fi
 
     if [ ! -f "$patch_file" ]; then
@@ -90,10 +103,10 @@ _apply_patch() {
         return 1
     fi
 
-    echo "[+] Applying patch: $1"
+    echo "[+] Applying patch: $patch_path"
     local patch_result=$(patch -p1 -l --forward --fuzz=3 <"$patch_file" 2>&1)
     if [ $? -ne 0 ]; then
-        echo "[-] Failed to apply patch: $1"
+        echo "[-] Failed to apply patch: $patch_path"
         echo "$patch_result"
         echo "[-] Please check the patch file and try again."
         return 1
@@ -103,16 +116,29 @@ _apply_patch() {
         echo "$patch_result" | grep ".rej"
         return 1
     fi
-    echo "[+] Patch applied successfully: $1"
+    echo "[+] Patch applied successfully: $patch_path"
     return 0
 }
 
 _apply_patch_strict() {
-    local patch_file="$build_root/kernel_patches/$1"
-
+    local patch_path="$1"
+    local patch_file=""
+    
     if [ -z "$build_root" ]; then
         echo "[-] Error: build_root is not set"
         return 1
+    fi
+
+    # Check if the path is absolute or relative
+    if [[ "$patch_path" == /* ]]; then
+        # Absolute path
+        patch_file="$patch_path"
+    elif [[ "$patch_path" == wild_kernels/* ]]; then
+        # Wild kernels patch - use cache directory
+        patch_file="$cache_config_dir/kernel_patches/$patch_path"
+    else
+        # Traditional relative path - use build_root
+        patch_file="$build_root/kernel_patches/$patch_path"
     fi
 
     if [ ! -f "$patch_file" ]; then
@@ -120,10 +146,10 @@ _apply_patch_strict() {
         return 1
     fi
 
-    echo "[+] Applying patch: $1"
+    echo "[+] Applying patch: $patch_path"
     local patch_result=$(patch -p1 -l <"$patch_file" 2>&1)
     if [ $? -ne 0 ]; then
-        echo "[-] Failed to apply patch: $1"
+        echo "[-] Failed to apply patch: $patch_path"
         echo "$patch_result"
         echo "[-] Please check the patch file and try again."
         return 1

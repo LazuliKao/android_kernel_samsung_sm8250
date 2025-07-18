@@ -3,6 +3,23 @@ SUSFS_REPO="${susfs_repo:-https://gitlab.com/simonpunk/susfs4ksu.git}"
 export GIT_ADVICE_DETACHED_HEAD=false
 BUILD_USING_OVERLAY=${build_using_overlay:-true}
 
+# Generate configuration hash based on KSU and SuSFS branches
+# 根据 KSU 和 SuSFS 分支生成配置哈希
+generate_config_hash() {
+    local ksu_branch_param="$1"
+    local susfs_branch_param="$2"
+    
+    # Use a cross-platform hash generation method
+    if command -v md5sum >/dev/null 2>&1; then
+        echo "${ksu_branch_param}-${susfs_branch_param}" | md5sum | cut -d' ' -f1 | cut -c1-8
+    elif command -v md5 >/dev/null 2>&1; then
+        echo "${ksu_branch_param}-${susfs_branch_param}" | md5 | cut -c1-8
+    else
+        # Fallback: use simple string manipulation
+        echo "${ksu_branch_param}-${susfs_branch_param}" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-8
+    fi
+}
+
 # OverlayFS utility function
 setup_overlay() {
     local source_dir="$1"
@@ -210,9 +227,9 @@ prepare_source_git() {
 
 extract_kernel_config() {
     cd "$build_root"
-    local tools_dir="$build_root/tools"
+    local tools_dir="$cache_config_dir/tools"
     if [ ! -d "$tools_dir" ]; then
-        mkdir "$tools_dir"
+        mkdir -p "$tools_dir"
     fi
     local kptools="$tools_dir/kptools-linux"
     # if kptools-linux not exists, download it
@@ -240,7 +257,7 @@ extract_kernel_config() {
     "$kptools" -i boot.img -f >boot.img.build.conf
     echo "[+] Kernel config extracted successfully."
     # see the kernel version of official kernel
-    echo "[+] Kernel version of official kernel:"
+    echo "[+] Kernel version of official kernel >>>"
     "$kptools" -i boot.img -d | head -n 3
     # copy the extracted kernel config to the kernel source and build using it
     echo "[+] Copying kernel config to the kernel source..."
@@ -324,9 +341,10 @@ apply_wild_kernels_config() {
 
 prepare_wild_patches() {
     # check if wild_kernels directory exists
-    local wild_kernels_dir="$build_root/kernel_patches/wild_kernels"
+    local wild_kernels_dir="$cache_config_dir/kernel_patches/wild_kernels"
     if [ ! -d "$wild_kernels_dir" ]; then
         echo "[+] Cloning Wild Kernels repository..."
+        mkdir -p "$(dirname "$wild_kernels_dir")"
         git clone https://github.com/WildKernels/kernel_patches.git "$wild_kernels_dir" --depth 1
         if [ $? -ne 0 ]; then
             echo "[-] Failed to clone Wild Kernels repository."
@@ -470,9 +488,10 @@ build_container() {
 }
 
 add_susfs_prepare() {
-    local susfs_dir="$build_root/susfs"
+    local susfs_dir="$cache_config_dir/susfs"
     if [ ! -d "$susfs_dir" ]; then
         echo "[+] Cloning susfs4ksu repository..."
+        mkdir -p "$(dirname "$susfs_dir")"
         git clone "$SUSFS_REPO" --depth 1 -b "$susfs_branch" "$susfs_dir"
     else
         echo "[+] Updating susfs4ksu repository..."
