@@ -20,10 +20,17 @@ generate_config_hash() {
     fi
 }
 
+__get_overlay_base() {
+    if [ -z "$cache_platform_dir" ]; then
+        echo "[-] cache_platform_dir is not set."
+        return 1
+    fi
+    echo "$cache_platform_dir/overlay"
+}
 # OverlayFS utility function
 setup_overlay() {
     local source_dir="$1"
-    local overlay_base="$build_root/overlay"
+    local overlay_base="$(__get_overlay_base)"
     local kernel_edit_dir="$build_root/kernel_edit"
     
     if [ ! -d "$source_dir" ]; then
@@ -86,7 +93,7 @@ clean() {
     if [ "$BUILD_USING_OVERLAY" = true ]; then
         echo "[+] Cleaning overlay directory..."
         cleanup_overlay
-        local overlay_dir="$build_root/overlay"
+        local overlay_dir="$(__get_overlay_base)"
         local kernel_edit_dir="$build_root/kernel_edit"
         if [ -d "$overlay_dir" ]; then
             rm -rf "$overlay_dir"
@@ -114,7 +121,7 @@ prepare_source() {
     if [ "$BUILD_USING_OVERLAY" = true ]; then
         echo "[+] Using overlay mode for kernel source..."
         # Use a different directory name for the original source
-        original_kernel_root="${kernel_root}_source"
+        original_kernel_root="$cache_platform_dir/kernel_source_read_only"
     fi
     
     if [ ! -d "$original_kernel_root" ]; then
@@ -143,6 +150,10 @@ prepare_source() {
             exit 1
         fi
         cd "$original_kernel_root"
+        if [ "$BUILD_USING_OVERLAY" = true ]; then
+            echo "[+] Setting read-only permissions for original kernel source..."
+            chmod 555 -R "$original_kernel_root"
+        fi
         echo "[+] Checking kernel version..."
         local kernel_version=$(get_kernel_version "$original_kernel_root")
         local kernel_kmi_version=$(echo $kernel_version | cut -d '.' -f 1-2)
@@ -254,7 +265,7 @@ extract_kernel_config() {
     fi
     echo "[+] boot.img decompressed successfully."
     # extract official kernel config from boot.img
-    "$kptools" -i boot.img -f >boot.img.build.conf
+    local boot_config_content=$("$kptools" -i boot.img -f)
     echo "[+] Kernel config extracted successfully."
     # see the kernel version of official kernel
     echo "[+] Kernel version of official kernel >>>"
@@ -262,7 +273,7 @@ extract_kernel_config() {
     # copy the extracted kernel config to the kernel source and build using it
     echo "[+] Copying kernel config to the kernel source..."
     local custom_config_file="$kernel_root/arch/arm64/configs/$custom_config_name"
-    tail -n +2 boot.img.build.conf >"$custom_config_file"
+    echo "$boot_config_content" | tail -n +2 >"$custom_config_file"
     echo "[+] Kernel config updated successfully."
     echo "[+] Kernel config file: $custom_config_file"
     echo "[+] Copying stock boot.img to the kernel source..."
@@ -279,7 +290,7 @@ extract_kernel_config() {
     # https://github.com/ravindu644/Android-Kernel-Tutorials/?tab=readme-ov-file#02-fix-theres-an-internal-problem-with-your-device-issue
     cd "$kernel_root"
     echo "[+] Copy stock_config to kernel source..."
-    tail -n +2 "$build_root/boot.img.build.conf" >"$kernel_root/arch/arm64/configs/stock_defconfig"
+    echo "$boot_config_content" | tail -n +2 >"$kernel_root/arch/arm64/configs/stock_defconfig"
 
     local with_patch="$1"
     if [ "$with_patch" = true ]; then

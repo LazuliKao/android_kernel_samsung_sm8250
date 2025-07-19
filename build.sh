@@ -7,8 +7,7 @@ kernel_root="$build_root/kernel_source"
 # 缓存目录配置 - 可通过环境变量覆盖
 cache_root="${CACHE_ROOT:-$build_root/cache}"
 
-
-# == SukiSU-Ultra + SuSFS == 
+# == SukiSU-Ultra + SuSFS ==
 ksu_add_susfs=true
 ksu_platform="sukisu-ultra"
 ksu_install_script="https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh"
@@ -37,13 +36,12 @@ use_lineageos_source=false
 linageos_source_repo="https://github.com/LineageOS/android_kernel_samsung_sm8250.git"
 linageos_source_branch="lineage-22.2"
 
-
 source "$build_root/scripts/utils/lib.sh"
 source "$build_root/scripts/utils/core.sh"
 config_hash=$(generate_config_hash "${ksu_branch}" "${susfs_branch}")
 cache_config_dir="$cache_root/config_${config_hash}"
-# Toolchains are shared across all configurations
-toolchains_root="$cache_root/toolchains"
+cache_platform_dir="$cache_root/sm8250"
+toolchains_root="$cache_platform_dir/toolchains"
 
 function download_toolchains() {
     mkdir -p "$toolchains_root"
@@ -166,9 +164,9 @@ function add_extra_config() {
     _set_or_add_config CONFIG_DEBUG_SECTION_MISMATCH y
     _set_or_add_config CONFIG_BUILD_ARM64_DT_OVERLAY y
     _set_or_add_config CONFIG_BUILD_ARM64_UNCOMPRESSED_KERNEL n
-    
+
     _set_or_add_config CONFIG_GAF_V6 n
-    
+
     # _set_or_add_config CONFIG_FSCRYPT_SDP n
     _set_or_add_config CONFIG_ECRYPT_FS n
     _set_or_add_config CONFIG_ECRYPT_FS_MESSAGING n
@@ -205,11 +203,14 @@ function print_usage() {
     echo "  Based on SuSFS branch: $susfs_branch"
     echo "  Cache subdirectory: $cache_config_dir"
 }
-function fix_samsung_kernel_4_1x_ksu(){
+function fix_samsung_kernel_4_1x_ksu() {
+    cd "$kernel_root"
     # * Refer to tiann/KernelSU#436 , we will got "save_allow_list creat file failed: -126" on Samsung Kernel 4.14/4.19, merge upstream is not easy for Samsung devices, so we give KernelSU a patch to let samsung devices work in traditional mode.
     local search_dir="drivers/kernelsu"
     # Find all in the files and replace.
     grep -rl 'if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)' "$search_dir" | xargs sed -i 's/if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0)/if 1/g'
+    echo "[+] Samsung kernel 4.1x KSU fix applied successfully."
+    cd - >/dev/null
 }
 
 function main() {
