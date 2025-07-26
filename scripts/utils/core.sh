@@ -6,17 +6,23 @@ BUILD_USING_OVERLAY=${build_using_overlay:-true}
 # Generate configuration hash based on KSU and SuSFS branches
 # 根据 KSU 和 SuSFS 分支生成配置哈希
 generate_config_hash() {
-    local ksu_branch_param="$1"
-    local susfs_branch_param="$2"
-
+    local all_config="$ksu_platform|$ksu_install_scripts|$ksu_branch"
+    if [ "$ksu_add_susfs" = true ]; then
+        all_config+="|$susfs_repo|$susfs_branch"
+    else
+        all_config+="|no_susfs"
+    fi
+    all_config+="|$TOOLCHAINS_URL"
+    all_config+="|$KERNEL_SOURCE_URL"
+    all_config+="|$KERNEL_BOOT_IMG_URL"
     # Use a cross-platform hash generation method
     if command -v md5sum >/dev/null 2>&1; then
-        echo "${ksu_branch_param}-${susfs_branch_param}" | md5sum | cut -d' ' -f1 | cut -c1-8
+        echo "${all_config}" | md5sum | cut -d' ' -f1 | cut -c1-8
     elif command -v md5 >/dev/null 2>&1; then
-        echo "${ksu_branch_param}-${susfs_branch_param}" | md5 | cut -c1-8
+        echo "${all_config}" | md5 | cut -c1-8
     else
         # Fallback: use simple string manipulation
-        echo "${ksu_branch_param}-${susfs_branch_param}" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-8
+        echo "${all_config}" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-8
     fi
 }
 

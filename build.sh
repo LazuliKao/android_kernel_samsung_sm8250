@@ -20,7 +20,7 @@ source "$build_root/scripts/utils/lib.sh"
 source "$build_root/scripts/utils/core.sh"
 
 cache_root=$(realpath ${cache_root:-./cache})
-config_hash=$(generate_config_hash "${ksu_branch}" "${susfs_branch}")
+config_hash=$(generate_config_hash)
 cache_config_dir="$cache_root/config_${config_hash}"
 cache_platform_dir="$cache_root/sm8250"
 toolchains_root="$cache_platform_dir/toolchains"
