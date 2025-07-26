@@ -8,7 +8,7 @@ BUILD_USING_OVERLAY=${build_using_overlay:-true}
 generate_config_hash() {
     local ksu_branch_param="$1"
     local susfs_branch_param="$2"
-    
+
     # Use a cross-platform hash generation method
     if command -v md5sum >/dev/null 2>&1; then
         echo "${ksu_branch_param}-${susfs_branch_param}" | md5sum | cut -d' ' -f1 | cut -c1-8
@@ -32,35 +32,35 @@ setup_overlay() {
     local source_dir="$1"
     local overlay_base="$(__get_overlay_base)"
     local kernel_edit_dir="$build_root/kernel_edit"
-    
+
     if [ ! -d "$source_dir" ]; then
         echo "[-] Source directory $source_dir does not exist."
         return 1
     fi
-    
+
     echo "[+] Setting up overlayfs for kernel source..."
-    
+
     # Create necessary directories
     local upper_dir="$overlay_base/upper"
     local work_dir="$overlay_base/work"
-    
+
     mkdir -p "$upper_dir"
     mkdir -p "$work_dir"
     mkdir -p "$kernel_edit_dir"
-    
+
     # Check if overlayfs is already mounted
     if mountpoint -q "$kernel_edit_dir"; then
         echo "[+] Overlayfs already mounted at $kernel_edit_dir"
         return 0
     fi
-    
+
     # Mount overlayfs
     echo "[+] Mounting overlayfs..."
     echo "    Lower: $source_dir"
     echo "    Upper: $upper_dir"
     echo "    Work:  $work_dir"
     echo "    Mount: $kernel_edit_dir"
-    
+
     if ! mount -t overlay overlay \
         -o "lowerdir=$source_dir,upperdir=$upper_dir,workdir=$work_dir" \
         "$kernel_edit_dir"; then
@@ -68,7 +68,7 @@ setup_overlay() {
         echo "[-] Try running with sudo or check if overlayfs is supported."
         return 1
     fi
-    
+
     echo "[+] Overlayfs mounted successfully at $kernel_edit_dir"
     return 0
 }
@@ -76,7 +76,7 @@ setup_overlay() {
 # Cleanup overlay mount
 cleanup_overlay() {
     local kernel_edit_dir="$build_root/kernel_edit"
-    
+
     if mountpoint -q "$kernel_edit_dir"; then
         echo "[+] Unmounting overlayfs..."
         if umount "$kernel_edit_dir"; then
@@ -116,23 +116,33 @@ clean() {
 prepare_source() {
     local use_strip_components=${1:-true}
     local original_kernel_root="$kernel_root"
-    
+
     # Check if we should use overlay mode
     if [ "$BUILD_USING_OVERLAY" = true ]; then
         echo "[+] Using overlay mode for kernel source..."
         # Use a different directory name for the original source
         original_kernel_root="$cache_platform_dir/kernel_source_read_only"
     fi
-    
+
     if [ ! -d "$original_kernel_root" ]; then
         # extract the official source code
         echo "[+] Extracting official source code..."
         if [ ! -f "Kernel.tar.gz" ]; then
             echo "[+] Kernel.tar.gz not found. Extracting from $official_source..."
             if [ ! -f "$official_source" ]; then
-                echo "Please download the official source code from Samsung Open Source Release Center."
-                echo "link: $kernel_source_link"
-                exit 1
+                if [ -z "$KERNEL_SOURCE_URL" ]; then
+                    echo "[-] KERNEL_SOURCE_URL is not set. Please set it to the URL of the official kernel source code."
+                    echo "Or download the official source code from Samsung Open Source Release Center."
+                    echo "link: $kernel_source_link"
+                    exit 1
+                fi
+                echo "[+] Downloading official kernel source from $KERNEL_SOURCE_URL..."
+                wget -q "$KERNEL_SOURCE_URL" -O "$official_source"
+                if [ $? -ne 0 ]; then
+                    echo "[-] Failed to download official kernel source from $KERNEL_SOURCE_URL."
+                    exit 1
+                fi
+                echo "[+] Official kernel source downloaded successfully."
             fi
             unzip -o -q "$official_source" "Kernel.tar.gz"
         fi
@@ -166,7 +176,7 @@ prepare_source() {
         chmod 777 -R "$original_kernel_root"
         echo "[+] Kernel source code extracted successfully."
     fi
-    
+
     # Setup overlay if enabled
     if [ "$BUILD_USING_OVERLAY" = true ]; then
         if setup_overlay "$original_kernel_root"; then
@@ -187,16 +197,16 @@ prepare_source_git() {
         echo "[-] Kernel source git URL or branch is not set."
         exit 1
     fi
-    
+
     local original_kernel_root="$kernel_root"
-    
+
     # Check if we should use overlay mode
     if [ "$BUILD_USING_OVERLAY" = true ]; then
         echo "[+] Using overlay mode for kernel source..."
         # Use a different directory name for the original source
         original_kernel_root="${kernel_root}_source"
     fi
-    
+
     if [ ! -d "$original_kernel_root" ]; then
         echo "[+] Cloning kernel source from git..."
         git clone --depth 1 -b "$kernel_source_branch" "$kernel_source_git" "$original_kernel_root"
@@ -210,7 +220,7 @@ prepare_source_git() {
         echo "[+] Kernel source already exists, skipping clone."
         cd "$original_kernel_root"
     fi
-    
+
     echo "[+] Checking kernel version..."
     local kernel_version=$(get_kernel_version "$original_kernel_root")
     local kernel_kmi_version=$(echo $kernel_version | cut -d '.' -f 1-2)
@@ -222,7 +232,7 @@ prepare_source_git() {
     echo "[+] Setting up permissions..."
     chmod 777 -R "$original_kernel_root"
     echo "[+] Kernel source code prepared successfully."
-    
+
     # Setup overlay if enabled
     if [ "$BUILD_USING_OVERLAY" = true ]; then
         if setup_overlay "$original_kernel_root"; then
@@ -234,6 +244,35 @@ prepare_source_git() {
             export kernel_root="$original_kernel_root"
         fi
     fi
+}
+
+try_extract_toolchains() {
+    local toolchains_file="toolchain.tar.gz"
+    # extract the toolchains from the official source code
+    echo "[+] toolchains not found. Extracting from $toolchains_file..."
+    if [ ! -f "$toolchains_file" ]; then
+        if [ -z "$TOOLCHAINS_URL" ]; then
+            echo "[-] TOOLCHAINS_URL is not set. Please set it to the URL of the toolchains file."
+            echo "Or download the official toolchains from Samsung Open Source Release Center."
+            echo "link: $kernel_toolchains_link"
+            exit 1
+        fi
+        echo "[+] Downloading toolchains from $TOOLCHAINS_URL..."
+        wget -q "$TOOLCHAINS_URL" -O "$toolchains_file"
+        if [ $? -ne 0 ]; then
+            echo "[-] Failed to download toolchains from $TOOLCHAINS_URL."
+            exit 1
+        fi
+        echo "[+] Toolchains downloaded successfully."
+    fi
+    mkdir -p "$toolchains_root"
+    tar -xzf "$toolchains_file" -C "$toolchains_root" --strip-components=1
+    if [ $? -ne 0 ]; then
+        echo "[-] Failed to extract toolchains from $toolchains_file."
+        rm -rf "$toolchains_root"
+        exit 1
+    fi
+    echo "[+] Toolchains extracted successfully to $toolchains_root."
 }
 
 extract_kernel_config() {
@@ -256,11 +295,34 @@ extract_kernel_config() {
         if [ -f "boot.img" ]; then
             echo "boot.img already exists, skipping decompression."
         else
-            echo "[-] boot.img not found."
-            echo "[-] boot.img.lz4 not found, please put it in the current directory."
-            echo "     Where to get boot.img?"
-            echo "     - Downlaod the samsung firmware match your phone, extract it, and extract the boot.img.lz4 from the 'AP_...tar.md5'"
-            exit 1
+            if [ -z "$KERNEL_BOOT_IMG_URL" ]; then
+                echo "[-] boot.img not found."
+                echo "[-] boot.img.lz4 not found, please put it in the current directory."
+                echo "     Where to get boot.img?"
+                echo "     - Downlaod the samsung firmware match your phone, extract it, and extract the boot.img.lz4 from the 'AP_...tar.md5'"
+                exit 1
+            fi
+            echo "[+] Downloading boot.img from $KERNEL_BOOT_IMG_URL..."
+            local is_lz4=$(
+                echo "$KERNEL_BOOT_IMG_URL" | grep -q "\.lz4$"
+                echo $?
+            )
+            if [ "$is_lz4" -eq 0 ]; then
+                wget -q "$KERNEL_BOOT_IMG_URL" -O boot.img.lz4
+                if [ $? -ne 0 ]; then
+                    echo "[-] Failed to download boot.img.lz4 from $KERNEL_BOOT_IMG_URL."
+                    exit 1
+                fi
+                echo "[+] boot.img.lz4 downloaded successfully."
+                lz4 -d -f boot.img.lz4 boot.img
+            else
+                wget -q "$KERNEL_BOOT_IMG_URL" -O boot.img
+                if [ $? -ne 0 ]; then
+                    echo "[-] Failed to download boot.img from $KERNEL_BOOT_IMG_URL."
+                    exit 1
+                fi
+                echo "[+] boot.img downloaded successfully."
+            fi
         fi
     fi
     echo "[+] boot.img decompressed successfully."

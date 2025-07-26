@@ -3,41 +3,23 @@ official_source="SM-T870_EUR_13_Opensource.zip" # change it with you downloaded 
 build_root=$(pwd)
 kernel_root="$build_root/kernel_source"
 
-# Cache directory configuration - can be overridden by environment variable
-# 缓存目录配置 - 可通过环境变量覆盖
-cache_root="${CACHE_ROOT:-$build_root/cache}"
-
-# == SukiSU-Ultra + SuSFS ==
-ksu_add_susfs=true
-ksu_platform="sukisu-ultra"
-ksu_install_script="https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh"
-ksu_branch="susfs-1.5.7"
-susfs_resolve_patch="resolve_rejected_susfs_1.5.5.patch"
-
-# == KernelSU-Next ==
-# ksu_branch="v1.0.9"
-# ksu_platform="ksu-next"
-
-# == KernelSU-Next with SuSFS == (broken)
-# susfs_repo="https://github.com/ShirkNeko/susfs4ksu.git"
-# ksu_install_script="https://raw.githubusercontent.com/pershoot/KernelSU-Next/next-susfs/kernel/setup.sh"
-# ksu_branch="next-susfs"
-
-susfs_branch="kernel-4.19"
 container_name="sm8250-kernel-builder"
 
 kernel_build_script="scripts/build_kernel_4.19.sh"
 support_kernel="4.19" # only support 4.19 kernel
 kernel_source_link="https://opensource.samsung.com/uploadSearch?searchValue=T870"
 
+use_lineageos_source="${use_lineageos_source:-false}"
+# linageos_source_repo="https://github.com/LineageOS/android_kernel_samsung_sm8250.git"
+# linageos_source_branch="lineage-22.2"
+
 custom_config_name="vendor/gts7lwifi_eur_open_defconfig"
-
-use_lineageos_source=false
-linageos_source_repo="https://github.com/LineageOS/android_kernel_samsung_sm8250.git"
-linageos_source_branch="lineage-22.2"
-
+source "$build_root/scripts/utils/config.sh"
+_auto_load_config
 source "$build_root/scripts/utils/lib.sh"
 source "$build_root/scripts/utils/core.sh"
+
+cache_root=$(realpath ${cache_root:-./cache})
 config_hash=$(generate_config_hash "${ksu_branch}" "${susfs_branch}")
 cache_config_dir="$cache_root/config_${config_hash}"
 cache_platform_dir="$cache_root/sm8250"
@@ -310,7 +292,7 @@ case "${1:-}" in
         fi
     fi
     echo "[+] Building kernel using Docker container..."
-    docker run --rm -it -v "$kernel_root:/workspace" -v "$toolchains_root:/toolchains" $container_name /workspace/build.sh
+    docker run --rm -i -v "$kernel_root:/workspace" -v "$toolchains_root:/toolchains" $container_name /workspace/build.sh
 
     exit 0
     ;;
