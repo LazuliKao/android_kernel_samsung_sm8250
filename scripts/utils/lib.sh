@@ -80,21 +80,17 @@ _set_or_add_config() {
 _apply_patch() {
     local patch_path="$1"
     local patch_file=""
-    
+
     if [ -z "$build_root" ]; then
         echo "[-] Error: build_root is not set"
         return 1
     fi
-
-    # Check if the path is absolute or relative
+    # Determine patch file location: absolute, cache, or build_root
     if [[ "$patch_path" == /* ]]; then
-        # Absolute path
         patch_file="$patch_path"
-    elif [[ "$patch_path" == wild_kernels/* ]]; then
-        # Wild kernels patch - use cache directory
+    elif [ -f "$cache_config_dir/kernel_patches/$patch_path" ]; then
         patch_file="$cache_config_dir/kernel_patches/$patch_path"
     else
-        # Traditional relative path - use build_root
         patch_file="$build_root/kernel_patches/$patch_path"
     fi
 
@@ -123,7 +119,7 @@ _apply_patch() {
 _apply_patch_strict() {
     local patch_path="$1"
     local patch_file=""
-    
+
     if [ -z "$build_root" ]; then
         echo "[-] Error: build_root is not set"
         return 1

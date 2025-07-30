@@ -176,6 +176,22 @@ __get_ksu_version() {
     echo "${KSU_VERSION:-Not found}"
     popd >/dev/null
 }
+__get_config_value() {
+    if [ -z "$KERNEL_ROOT" ]; then
+        echo "[-] KERNEL_ROOT is not set. Please set it to the root of your kernel source."
+        exit 1
+    fi
+    local source_details_file="$KERNEL_ROOT/source_details.config"
+    if [ ! -f "$source_details_file" ]; then
+        echo "[-] source_details.config not found in $KERNEL_ROOT. Please run the script to save source details."
+        return 1
+    fi
+    local value=$(grep "^$1=" "$source_details_file" | cut -d'=' -f2-)
+    if [ -z "$value" ]; then
+        return 1
+    fi
+    echo "$value"
+}
 
 generate_info() {
     if [ -z "$KERNEL_ROOT" ]; then
@@ -185,6 +201,17 @@ generate_info() {
     if [ ! -d "./dist" ]; then
         mkdir -p ./dist
     fi
+    local CONFIG_FILE=$(__get_config_value "CONFIG_FILE")
+    local KERNEL_SOURCE_URL=$(__get_config_value "KERNEL_SOURCE_URL")
+    local KERNEL_BOOT_IMG_URL=$(__get_config_value "KERNEL_BOOT_IMG_URL")
+    local TOOLCHAINS_URL=$(__get_config_value "TOOLCHAINS_URL")
+    local ksu_platform=$(__get_config_value "ksu_platform")
+    local ksu_install_scripts=$(__get_config_value "ksu_install_scripts")
+    local ksu_branch=$(__get_config_value "ksu_branch")
+    local ksu_add_susfs=$(__get_config_value "ksu_add_susfs")
+    local susfs_repo=$(__get_config_value "susfs_repo")
+    local susfs_branch=$(__get_config_value "susfs_branch")
+
     local build_date=$(date '+%Y-%m-%d %H:%M:%S')
     local kernel_version=$(__get_kernel_version)
     local susfs_version=$(__get_susfs_version)
@@ -200,6 +227,19 @@ SUSFS Version: $susfs_version
 KSU Version: $ksu_version
 Architecture: $ARCH
 Compiler: $(clang --version | head -n1)
+
+Configuration Details
+=====================
+CONFIG_FILE: $CONFIG_FILE
+KERNEL_SOURCE_URL: $KERNEL_SOURCE_URL
+KERNEL_BOOT_IMG_URL: $KERNEL_BOOT_IMG_URL
+TOOLCHAINS_URL: $TOOLCHAINS_URL
+KSU Platform: $ksu_platform
+KSU Install Scripts: $ksu_install_scripts
+KSU Branch: $ksu_branch
+KSU Add SUSFS: $ksu_add_susfs
+SUSFS Repo: $susfs_repo
+SUSFS Branch: $susfs_branch
 EOF
     echo "[+] Build info saved to ./dist/build_info.txt"
 }

@@ -384,41 +384,7 @@ fix_kernel_su_next_susfs() {
     echo "[+] KernelSU Next with SuSFS fix applied successfully."
 }
 
-apply_kernelsu_manual_hooks() {
-    prepare_wild_patches
-    echo "[+] Applying syscall hooks..."
-    cd "$kernel_root"
-    if ! _apply_patch "wild_kernels/next/syscall_hooks.patch"; then
-        echo "[-] Failed to apply syscall hooks patch"
-        exit 1
-    fi
-    echo "[+] Syscall hooks applied successfully."
-    cd - >/dev/null
-    _set_or_add_config CONFIG_KSU_KPROBES_HOOK n
-    _set_or_add_config CONFIG_KSU_WITH_KPROBES n
-    _set_or_add_config CONFIG_KSU_MANUAL_HOOK y
-}
-
-apply_wild_kernels_config() {
-    # Add additional tmpfs config setting
-    _set_or_add_config CONFIG_TMPFS_XATTR y
-    _set_or_add_config CONFIG_TMPFS_POSIX_ACL y
-
-    # Add additional config setting
-    _set_or_add_config CONFIG_IP_NF_TARGET_TTL y
-    _set_or_add_config CONFIG_IP6_NF_TARGET_HL y
-    _set_or_add_config CONFIG_IP6_NF_MATCH_HL y
-
-    # Add BBR Config
-    _set_or_add_config CONFIG_TCP_CONG_ADVANCED y
-    _set_or_add_config CONFIG_TCP_CONG_BBR y
-    _set_or_add_config CONFIG_NET_SCH_FQ y
-    _set_or_add_config CONFIG_TCP_CONG_BIC n
-    _set_or_add_config CONFIG_TCP_CONG_WESTWOOD n
-    _set_or_add_config CONFIG_TCP_CONG_HTCP n
-}
-
-prepare_wild_patches() {
+__prepare_wild_patches() {
     # check if wild_kernels directory exists
     local wild_kernels_dir="$cache_config_dir/kernel_patches/wild_kernels"
     if [ ! -d "$wild_kernels_dir" ]; then
@@ -442,8 +408,43 @@ prepare_wild_patches() {
     fi
 }
 
+apply_kernelsu_manual_hooks() {
+    __prepare_wild_patches
+    echo "[+] Applying syscall hooks..."
+    cd "$kernel_root"
+    if ! _apply_patch "wild_kernels/next/syscall_hooks.patch"; then
+        echo "[-] Failed to apply syscall hooks patch"
+        exit 1
+    fi
+    echo "[+] Syscall hooks applied successfully."
+    cd - >/dev/null
+    _set_or_add_config CONFIG_KSU_KPROBES_HOOK n
+    _set_or_add_config CONFIG_KSU_WITH_KPROBES n
+    _set_or_add_config CONFIG_KSU_MANUAL_HOOK y
+}
+
+apply_wild_kernels_config() {
+    __prepare_wild_patches
+    # Add additional tmpfs config setting
+    _set_or_add_config CONFIG_TMPFS_XATTR y
+    _set_or_add_config CONFIG_TMPFS_POSIX_ACL y
+
+    # Add additional config setting
+    _set_or_add_config CONFIG_IP_NF_TARGET_TTL y
+    _set_or_add_config CONFIG_IP6_NF_TARGET_HL y
+    _set_or_add_config CONFIG_IP6_NF_MATCH_HL y
+
+    # Add BBR Config
+    _set_or_add_config CONFIG_TCP_CONG_ADVANCED y
+    _set_or_add_config CONFIG_TCP_CONG_BBR y
+    _set_or_add_config CONFIG_NET_SCH_FQ y
+    _set_or_add_config CONFIG_TCP_CONG_BIC n
+    _set_or_add_config CONFIG_TCP_CONG_WESTWOOD n
+    _set_or_add_config CONFIG_TCP_CONG_HTCP n
+}
+
 apply_wild_kernels_fix_for_next() {
-    prepare_wild_patches
+    __prepare_wild_patches
     echo "[+] Applying Wild Kernels fix..."
     cd "$kernel_root"
 
@@ -467,6 +468,75 @@ apply_wild_kernels_fix_for_next() {
 
     echo "[+] Wild Kernels fix applied successfully."
     cd - >/dev/null
+}
+
+__prepare_suki_patches() {
+    # check if suki_patch directory exists
+    local suki_patch_dir="$cache_config_dir/kernel_patches/suki_patch"
+    if [ ! -d "$suki_patch_dir" ]; then
+        echo "[+] Cloning SukiSU Patch repository..."
+        mkdir -p "$(dirname "$suki_patch_dir")"
+        git clone https://github.com/SukiSU-Ultra/SukiSU_patch.git "$suki_patch_dir" --depth 1
+        if [ $? -ne 0 ]; then
+            echo "[-] Failed to clone SukiSU Patch repository."
+            exit 1
+        fi
+    else
+        echo "[+] SukiSU Patch repository already exists, updating..."
+        cd "$suki_patch_dir"
+        git fetch origin
+        git reset --hard origin/main
+        if [ $? -ne 0 ]; then
+            echo "[-] Failed to update SukiSU Patch repository."
+            exit 1
+        fi
+        cd - >/dev/null
+    fi
+}
+
+apply_suki_patches() {
+    __prepare_suki_patches
+    echo "[+] Applying SukiSU patches..."
+    cd "$kernel_root"
+
+    local patches=(
+        "suki_patch/69_hide_stuff.patch"
+    )
+
+    for patch in "${patches[@]}"; do
+        if ! _apply_patch "$patch"; then
+            echo "[-] Failed to apply SukiSU patch: $patch"
+            exit 1
+        fi
+    done
+
+    echo "[+] SukiSU patches applied successfully."
+    cd - >/dev/null
+}
+
+add_lz4kd() {
+    local kernel_path_version="$1"
+    __prepare_suki_patches
+    local suki_patch_dir="$cache_config_dir/kernel_patches/suki_patch"
+    echo "[+] Adding lz4kd..."
+    cd "$kernel_root"
+
+    cp -r "$suki_patch_dir/other/zram/lz4k/include/linux/"* ./include/linux/
+    cp -r "$suki_patch_dir/other/zram/lz4k/lib/"* ./lib/
+    cp -r "$suki_patch_dir/other/zram/lz4k/crypto/"* ./crypto/
+
+    if ! _apply_patch "suki_patch/other/zram/zram_patch/$kernel_path_version/lz4kd.patch"; then
+        echo "[-] Failed to apply lz4kd patch"
+        exit 1
+    fi
+    echo "[+] LZ4KD patch applied successfully."
+
+    # Set config options for LZ4KD
+    _set_or_add_config CONFIG_ZSMALLOC y
+    _set_or_add_config CONFIG_ZRAM y
+    _set_or_add_config CONFIG_MODULE_SIG n
+    _set_or_add_config CONFIG_CRYPTO_LZO y
+    _set_or_add_config CONFIG_ZRAM_DEF_COMP_LZ4KD y
 }
 
 fix_driver_check() {
@@ -496,6 +566,7 @@ add_kprobes() {
     _set_or_add_config CONFIG_HAVE_KPROBES y
     _set_or_add_config CONFIG_KPROBE_EVENTS y
 }
+
 fix_samsung_securities() {
     # Disable Samsung Securities
     _set_or_add_config CONFIG_UH n
@@ -519,6 +590,29 @@ fix_samsung_securities() {
     _set_or_add_config CONFIG_CFP_ROPP n
 }
 
+__save_source_details() {
+    local source_details_file="$kernel_root/source_details.config"
+    echo "[+] Saving source details to $source_details_file..."
+    # dump all environment variables
+    {
+        echo "CONFIG_FILE=$CONFIG_FILE"
+        echo "KERNEL_SOURCE_URL=$KERNEL_SOURCE_URL"
+        echo "KERNEL_BOOT_IMG_URL=$KERNEL_BOOT_IMG_URL"
+        echo "TOOLCHAINS_URL=$TOOLCHAINS_URL"
+        echo "ksu_platform=$ksu_platform"
+        echo "ksu_install_scripts=$ksu_install_scripts"
+        echo "ksu_branch=$ksu_branch"
+        echo "ksu_add_susfs=$ksu_add_susfs"
+        echo "susfs_repo=$susfs_repo"
+        echo "susfs_branch=$susfs_branch"
+    } >"$source_details_file"
+    if [ $? -ne 0 ]; then
+        echo "[-] Failed to save source details."
+        exit 1
+    fi
+    echo "[+] Source details saved successfully."
+}
+
 add_build_script() {
     echo "[+] Adding build script..."
     cp "$build_root/$kernel_build_script" "$kernel_root/build.sh"
@@ -527,6 +621,7 @@ add_build_script() {
     chmod +x "$kernel_root/build.sh"
     chmod +x "$kernel_root/repack.sh"
     echo "[+] Build script added successfully."
+    __save_source_details
 }
 
 print_docker_usage() {
@@ -606,7 +701,7 @@ add_susfs_prepare() {
         echo "[+] SusFS is already included in KernelSU Next branch."
     else
         echo "[+] SusFS is not included in KernelSU Next branch, applying patch..."
-        prepare_wild_patches
+        __prepare_wild_patches
         cd "$kernel_root/KernelSU-Next"
         local patch_file="0001-kernel-implement-susfs-v1.5.8-KernelSU-Next-v1.0.8.patch"
         if [[ "$version" < "1.5.8" ]]; then
@@ -626,4 +721,10 @@ fix_callsyms_for_lkm() {
     _set_or_add_config CONFIG_KPM y
     _set_or_add_config CONFIG_KALLSYMS y
     _set_or_add_config CONFIG_KALLSYMS_ALL y
+}
+
+allow_disable_selinux() {
+    echo "[+] Allowing SELinux to be disabled..."
+    _set_or_add_config CONFIG_SECURITY_SELINUX y
+    _set_or_add_config CONFIG_SECURITY_SELINUX_DISABLE y
 }
