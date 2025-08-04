@@ -206,7 +206,7 @@ generate_info() {
     local KERNEL_BOOT_IMG_URL=$(__get_config_value "KERNEL_BOOT_IMG_URL")
     local TOOLCHAINS_URL=$(__get_config_value "TOOLCHAINS_URL")
     local ksu_platform=$(__get_config_value "ksu_platform")
-    local ksu_install_scripts=$(__get_config_value "ksu_install_scripts")
+    local ksu_install_script=$(__get_config_value "ksu_install_script")
     local ksu_branch=$(__get_config_value "ksu_branch")
     local ksu_add_susfs=$(__get_config_value "ksu_add_susfs")
     local susfs_repo=$(__get_config_value "susfs_repo")
@@ -235,7 +235,7 @@ KERNEL_SOURCE_URL: $KERNEL_SOURCE_URL
 KERNEL_BOOT_IMG_URL: $KERNEL_BOOT_IMG_URL
 TOOLCHAINS_URL: $TOOLCHAINS_URL
 KSU Platform: $ksu_platform
-KSU Install Scripts: $ksu_install_scripts
+KSU Install Script: $ksu_install_script
 KSU Branch: $ksu_branch
 KSU Add SUSFS: $ksu_add_susfs
 SUSFS Repo: $susfs_repo

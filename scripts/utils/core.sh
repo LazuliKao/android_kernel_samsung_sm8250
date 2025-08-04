@@ -6,7 +6,7 @@ BUILD_USING_OVERLAY=${build_using_overlay:-true}
 # Generate configuration hash based on KSU and SuSFS branches
 # 根据 KSU 和 SuSFS 分支生成配置哈希
 generate_config_hash() {
-    local all_config="$ksu_platform|$ksu_install_scripts|$ksu_branch"
+    local all_config="$ksu_platform|$ksu_install_script|$ksu_branch"
     if [ "$ksu_add_susfs" = true ]; then
         all_config+="|$susfs_repo|$susfs_branch"
     else
@@ -280,20 +280,20 @@ try_extract_toolchains() {
     fi
     echo "[+] Toolchains extracted successfully to $toolchains_root."
 }
-
-extract_kernel_config() {
-    cd "$build_root"
+__prepare_kptools() {
     local tools_dir="$cache_config_dir/tools"
     if [ ! -d "$tools_dir" ]; then
         mkdir -p "$tools_dir"
     fi
-    local kptools="$tools_dir/kptools-linux"
+    export kptools="$tools_dir/kptools-linux"
     # if kptools-linux not exists, download it
     if [ ! -f "$kptools" ]; then
         echo "kptools-linux not found, downloading..."
         wget https://github.com/bmax121/KernelPatch/releases/download/0.11.3/kptools-linux -O "$kptools"
         chmod +x "$kptools"
     fi
+}
+__prepare_stock_kernel() {
     if [ -f "boot.img.lz4" ]; then
         # use lz4 to decompress it
         lz4 -d -f boot.img.lz4 boot.img
@@ -332,6 +332,11 @@ extract_kernel_config() {
         fi
     fi
     echo "[+] boot.img decompressed successfully."
+}
+extract_kernel_config() {
+    cd "$build_root"
+    __prepare_kptools
+    __prepare_stock_kernel
     # extract official kernel config from boot.img
     local boot_config_content=$("$kptools" -i boot.img -f)
     echo "[+] Kernel config extracted successfully."
@@ -373,6 +378,9 @@ extract_kernel_config() {
 add_kernelsu() {
     echo "[+] Adding KernelSU Next..."
     cd "$kernel_root"
+    if [ -n "$ksu_install_repo" ]; then
+        git clone "$ksu_install_repo" "$kernel_root/KernelSU-Next"
+    fi
     curl -LSs "$KERNELSU_INSTALL_SCRIPT" | bash -s "$ksu_branch"
     cd "$build_root"
     echo "[+] KernelSU Next added successfully."
@@ -600,7 +608,7 @@ __save_source_details() {
         echo "KERNEL_BOOT_IMG_URL=$KERNEL_BOOT_IMG_URL"
         echo "TOOLCHAINS_URL=$TOOLCHAINS_URL"
         echo "ksu_platform=$ksu_platform"
-        echo "ksu_install_scripts=$ksu_install_scripts"
+        echo "ksu_install_script=$ksu_install_script"
         echo "ksu_branch=$ksu_branch"
         echo "ksu_add_susfs=$ksu_add_susfs"
         echo "susfs_repo=$susfs_repo"
@@ -727,4 +735,24 @@ allow_disable_selinux() {
     echo "[+] Allowing SELinux to be disabled..."
     _set_or_add_config CONFIG_SECURITY_SELINUX y
     _set_or_add_config CONFIG_SECURITY_SELINUX_DISABLE y
+}
+
+change_kernel_name() {
+    # cd "$build_root"
+    # __prepare_kptools
+    # __prepare_stock_kernel
+
+    echo "[+] Changing kernel name and version..."
+    cd "$kernel_root"
+
+    # Remove -dirty suffix
+    sed -i 's/-dirty//g' ./scripts/setlocalversion
+
+    # Add custom kernel name with SuSFS versions
+    # sed -i 's/echo "\$res"/echo "\$res-Next-SUSFS-v1.5.9-Wild"/' ./scripts/setlocalversion
+
+    # Set custom kernel timestamp
+    sed -i 's/UTS_VERSION="\$(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP | cut -b -\$UTS_LEN)"/UTS_VERSION="#1 SMP PREEMPT Sun Apr 20 04:20:00 UTC 2025"/' ./scripts/mkcompile_h
+
+    echo "[+] Kernel name and version changed successfully."
 }
