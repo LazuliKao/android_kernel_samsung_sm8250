@@ -281,7 +281,7 @@ try_extract_toolchains() {
     echo "[+] Toolchains extracted successfully to $toolchains_root."
 }
 __prepare_kptools() {
-    local tools_dir="$cache_config_dir/tools"
+    local tools_dir="$cache_root/tools"
     if [ ! -d "$tools_dir" ]; then
         mkdir -p "$tools_dir"
     fi
