@@ -231,7 +231,9 @@ function main() {
     if [ "$ksu_add_susfs" = true ]; then
         add_susfs
         fix_kernel_su_next_susfs
-        # add_susfs_fix
+        if [ "$susfs_repo" = "https://github.com/ShirkNeko/susfs4ksu.git" ]; then
+            add_susfs_fix
+        fi
     fi
 
     apply_wild_kernels_config
