@@ -469,8 +469,8 @@ apply_wild_kernels_fix_for_next() {
         "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_rules.c.patch"
         "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_sucompat.c.patch"
         "wild_kernels/69_hide_stuff.patch"
-        "wild_kernels/gki_ptrace.patch"
     )
+        # "wild_kernels/gki_ptrace.patch"
 
     for patch in "${patches[@]}"; do
         if ! _apply_patch "$patch"; then
