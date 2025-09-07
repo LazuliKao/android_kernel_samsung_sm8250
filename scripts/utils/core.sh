@@ -60,6 +60,9 @@ setup_overlay() {
         return 0
     fi
 
+    echo "[+] Setting permissions for overlay directories..."
+    chmod 777 "$upper_dir" "$work_dir" "$kernel_edit_dir"
+    
     # Mount overlayfs
     echo "[+] Mounting overlayfs..."
     echo "    Lower: $source_dir"
@@ -169,6 +172,9 @@ prepare_source() {
         if [ "$BUILD_USING_OVERLAY" = true ]; then
             echo "[+] Setting read-only permissions for original kernel source..."
             chmod 555 -R "$original_kernel_root"
+        else
+            echo "[+] Setting full permissions for original kernel source..."
+            chmod 777 -R "$original_kernel_root"
         fi
         echo "[+] Checking kernel version..."
         local kernel_version=$(get_kernel_version "$original_kernel_root")
@@ -179,7 +185,6 @@ prepare_source() {
             exit 1
         fi
         echo "[+] Setting up permissions..."
-        chmod 777 -R "$original_kernel_root"
         echo "[+] Kernel source code extracted successfully."
     fi
 
