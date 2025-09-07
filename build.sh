@@ -295,6 +295,11 @@ case "${1:-}" in
     fi
     echo "[+] Building kernel using Docker container..."
     docker run --rm -i -v "$kernel_root:/workspace" -v "$toolchains_root:/toolchains" $container_name /workspace/build.sh
+    if [ $? -ne 0 ]; then
+        echo "[-] Kernel build failed."
+        exit 1
+    fi
+    echo "[+] Kernel build completed successfully."
 
     exit 0
     ;;
