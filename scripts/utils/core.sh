@@ -295,6 +295,12 @@ __prepare_kptools() {
 }
 __prepare_stock_kernel() {
     if [ -f "boot.img.lz4" ]; then
+        # if there is no lz4 command
+        if ! command -v lz4 &>/dev/null; then
+            echo "[-] lz4 command not found. Please install lz4 to decompress boot.img.lz4."
+            echo "    On Ubuntu/Debian: sudo apt-get install lz4"
+            exit 1
+        fi
         # use lz4 to decompress it
         lz4 -d -f boot.img.lz4 boot.img
     else
@@ -459,12 +465,11 @@ apply_wild_kernels_fix_for_next() {
     local patches=(
         "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_apk_sign.c.patch"
         "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_core_hook.c.patch"
-        "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_ksud.c.patch"
+        "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_kernel_compat.c.patch"
         "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_rules.c.patch"
-        "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_selinux.c.patch"
         "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_sucompat.c.patch"
-        "wild_kernels/next/manager.patch"
         "wild_kernels/69_hide_stuff.patch"
+        "wild_kernels/gki_ptrace.patch"
     )
 
     for patch in "${patches[@]}"; do
