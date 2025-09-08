@@ -26,6 +26,25 @@ generate_config_hash() {
     fi
 }
 
+generate_source_hash(){
+    # use_lineageos_source
+    # lineageos_source_repo
+    # lineageos_source_branch
+    if [ "$use_lineageos_source" = true ]; then
+        local all_source="$lineageos_source_repo|$lineageos_source_branch"
+    else
+        local all_source="$official_source|$KERNEL_SOURCE_URL"
+    fi
+    # Use a cross-platform hash generation method
+    if command -v md5sum >/dev/null 2>&1; then
+        echo "${all_source}" | md5sum | cut -d' ' -f1 | cut -c1-8
+    elif command -v md5 >/dev/null 2>&1; then
+        echo "${all_source}" | md5 | cut -c1-8
+    else
+        # Fallback: use simple string manipulation
+        echo "${all_source}" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-8
+}
+
 __get_overlay_base() {
     if [ -z "$cache_platform_dir" ]; then
         echo "[-] cache_platform_dir is not set."
@@ -130,7 +149,7 @@ prepare_source() {
     if [ "$BUILD_USING_OVERLAY" = true ]; then
         echo "[+] Using overlay mode for kernel source..."
         # Use a different directory name for the original source
-        original_kernel_root="$cache_platform_dir/kernel_source_read_only"
+        original_kernel_root="$cache_platform_dir/kernel_source_read_only_$source_hash"
     fi
 
     if [ ! -d "$original_kernel_root" ]; then
@@ -352,7 +371,7 @@ extract_kernel_config() {
     local boot_config_content=$("$kptools" -i boot.img -f)
     echo "[+] Kernel config extracted successfully."
     # see the kernel version of official kernel
-    echo "[+] Kernel version of official kernel >>>"
+    echo "[+] Kernel version of official kernel (boot.img) is:"
     "$kptools" -i boot.img -d | head -n 3
     # copy the extracted kernel config to the kernel source and build using it
     echo "[+] Copying kernel config to the kernel source..."

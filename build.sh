@@ -1,7 +1,6 @@
 #!/bin/bash
 official_source="SM-T870_EUR_13_Opensource.zip" # change it with you downloaded file
 build_root=$(pwd)
-kernel_root="$build_root/kernel_source"
 
 container_name="sm8250-kernel-builder"
 
@@ -21,9 +20,11 @@ source "$build_root/scripts/utils/core.sh"
 
 cache_root=$(realpath ${cache_root:-./cache})
 config_hash=$(generate_config_hash)
+source_hash=$(generate_source_hash)
 cache_config_dir="$cache_root/config_${config_hash}"
 cache_platform_dir="$cache_root/sm8250"
 toolchains_root="$cache_platform_dir/toolchains"
+kernel_root="$build_root/kernel_source_$source_hash"
 
 function download_toolchains() {
     mkdir -p "$toolchains_root"
