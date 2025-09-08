@@ -392,7 +392,7 @@ extract_kernel_config() {
     if [ ! -d "$stock_boot_img" ]; then
         mkdir "$stock_boot_img"
     fi
-    cp "$boot_img" "$stock_boot_img"
+    cp "$boot_img" "$stock_boot_img/boot.img"
     if [ $? -ne 0 ]; then
         echo "[-] Failed to copy stock boot.img."
         exit 1
