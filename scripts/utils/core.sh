@@ -35,6 +35,7 @@ generate_source_hash() {
     else
         local all_source="$official_source|$KERNEL_SOURCE_URL"
     fi
+    all_source+="|$KERNEL_BOOT_IMG_URL"
     # Use a cross-platform hash generation method
     if command -v md5sum >/dev/null 2>&1; then
         echo "${all_source}" | md5sum | cut -d' ' -f1 | cut -c1-8
