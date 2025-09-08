@@ -26,7 +26,7 @@ generate_config_hash() {
     fi
 }
 
-generate_source_hash(){
+generate_source_hash() {
     # use_lineageos_source
     # lineageos_source_repo
     # lineageos_source_branch
@@ -43,6 +43,7 @@ generate_source_hash(){
     else
         # Fallback: use simple string manipulation
         echo "${all_source}" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-8
+    fi
 }
 
 __get_overlay_base() {
@@ -81,7 +82,7 @@ setup_overlay() {
 
     echo "[+] Setting permissions for overlay directories..."
     chmod 777 "$upper_dir" "$work_dir" "$kernel_edit_dir"
-    
+
     # Mount overlayfs
     echo "[+] Mounting overlayfs..."
     echo "    Lower: $source_dir"
@@ -500,7 +501,7 @@ apply_wild_kernels_fix_for_next() {
         "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_sucompat.c.patch"
         "wild_kernels/69_hide_stuff.patch"
     )
-        # "wild_kernels/gki_ptrace.patch"
+    # "wild_kernels/gki_ptrace.patch"
 
     for patch in "${patches[@]}"; do
         if ! _apply_patch "$patch"; then
