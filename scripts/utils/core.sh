@@ -319,7 +319,7 @@ __prepare_kptools() {
     fi
 }
 __prepare_stock_kernel() {
-    export boot_img="$cache_config_dir/boot_$source_hash.img"
+    export boot_img="$cache_platform_dir/boot_$source_hash.img"
     if [ -f "$boot_img" ]; then
         echo "[+] Stock boot.img already exists, skipping download."
         return 0
