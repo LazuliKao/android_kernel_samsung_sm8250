@@ -334,6 +334,7 @@ __prepare_stock_kernel() {
         fi
         # use lz4 to decompress it
         lz4 -d -f boot.img.lz4 boot.img
+        rm -f boot.img.lz4
     else
         if [ -f "boot.img" ]; then
             echo "boot.img already exists, skipping decompression."
@@ -358,6 +359,7 @@ __prepare_stock_kernel() {
                 fi
                 echo "[+] boot.img.lz4 downloaded successfully."
                 lz4 -d -f boot.img.lz4 boot.img
+                rm -f boot.img.lz4
             else
                 wget -q "$KERNEL_BOOT_IMG_URL" -O boot.img
                 if [ $? -ne 0 ]; then
@@ -370,6 +372,7 @@ __prepare_stock_kernel() {
     fi
     echo "[+] boot.img decompressed successfully."
     cp boot.img "$boot_img"
+    rm -f boot.img
 }
 extract_kernel_config() {
     cd "$build_root"
