@@ -27,7 +27,7 @@ toolchains_root="$cache_platform_dir/toolchains"
 kernel_root="$build_root/kernel_source_$source_hash"
 
 function download_toolchains() {
-    mkdir -p "$toolchains_root"
+    mkdir -p -m 777 "$toolchains_root"
     # Clone proton clang 12 if not already done
     if [ ! -d "$toolchains_root/proton-12" ]; then
         git clone --depth=1 https://github.com/ravindu644/proton-12.git "$toolchains_root/proton-12"
