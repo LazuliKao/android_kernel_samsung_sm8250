@@ -498,7 +498,6 @@ apply_wild_kernels_fix_for_next() {
         "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_apk_sign.c.patch"
         "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_core_hook.c.patch"
         "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_kernel_compat.c.patch"
-        "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_rules.c.patch"
         "wild_kernels/next/susfs_fix_patches/v1.5.9/fix_sucompat.c.patch"
         "wild_kernels/69_hide_stuff.patch"
     )
